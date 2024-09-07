@@ -1,0 +1,12 @@
+---
+- name: Ensure utilities are installed.
+  become: true
+  ansible.builtin.package:
+    name:
+      - sudo
+      - htop
+      - neovim
+      - tree
+      - ripgrep
+      - fd-find
+    state: present

@@ -1,0 +1,22 @@
+- name: First setup
+  hosts: proxmox_main
+  remote_user: server
+  tasks:
+    - name: Update and upgrade apt packages
+      become: true
+      ansible.builtin.apt:
+        upgrade: true
+        update_cache: true
+    - name: Ensure utilities are installed
+      become: true
+      ansible.builtin.package:
+        name:
+          - sudo
+          - htop
+          - neovim
+          - tree
+        state: present
+    - name: Install fail2ban (Debian).
+      ansible.builtin.package:
+        name: fail2ban
+        state: present

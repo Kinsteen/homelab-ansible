@@ -1,0 +1,11 @@
+---
+- name: download nvidia driver
+  ansible.builtin.get_url:
+    url: '{{ nvidia_driver_url }}'
+    dest: /var/lib/nvidia-ansible/nvidia_driver.run
+    mode: "0755"
+    force: true
+
+- name: install nvidia driver
+  ansible.builtin.command:
+    cmd: /var/lib/nvidia-ansible/nvidia_driver.run --silent

@@ -1,0 +1,5 @@
+- name: Setup Jellyfin
+  hosts: proxmox_main
+  remote_user: server
+  roles:
+    - { name: jellyfin, become: true }

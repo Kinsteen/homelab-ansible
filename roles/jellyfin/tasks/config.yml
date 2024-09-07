@@ -1,0 +1,78 @@
+---
+- name: Wait for config files to appear
+  ansible.builtin.wait_for:
+    path: "/etc/jellyfin/encoding.xml"
+
+- name: Update Jellyfin encoding configuration.
+  ansible.builtin.lineinfile:
+    dest: "/etc/jellyfin/encoding.xml"
+    insertafter: "EncodingThreadCount"
+    line: "  <TranscodingTempPath>/var/cache/jellyfin/transcodes</TranscodingTempPath>\n  <EnableFallbackFont>false</EnableFallbackFont>"
+    state: present
+    mode: "0644"
+    owner: jellyfin
+    group: jellyfin
+  # notify: restart jellyfin
+
+- name: Update Jellyfin encoding configuration.
+  ansible.builtin.lineinfile:
+    dest: "/etc/jellyfin/encoding.xml"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    mode: "0644"
+    owner: jellyfin
+    group: jellyfin
+  with_items:
+    - regexp: "EnableThrottling>false"
+      line: "  <EnableThrottling>true</EnableThrottling>"
+    - regexp: "EnableSegmentDeletion>false"
+      line: "  <EnableSegmentDeletion>true</EnableSegmentDeletion>"
+    - regexp: "EnableDecodingColorDepth10Vp9>true"
+      line: "  <EnableDecodingColorDepth10Vp9>false</EnableDecodingColorDepth10Vp9>"
+    - regexp: "AllowHevcEncoding>false"
+      line: "  <AllowHevcEncoding>true</AllowHevcEncoding>"
+  # notify: restart jellyfin
+
+- name: Update Jellyfin encoding configuration.
+  ansible.builtin.lineinfile:
+    dest: "/etc/jellyfin/encoding.xml"
+    insertafter: "SegmentKeepSeconds"
+    line: "  <HardwareAccelerationType>nvenc</HardwareAccelerationType>"
+    state: present
+    mode: "0644"
+    owner: jellyfin
+    group: jellyfin
+  # notify: restart jellyfin
+
+
+- name: Update Jellyfin encoding configuration.
+  ansible.builtin.lineinfile:
+    dest: "/etc/jellyfin/encoding.xml"
+    insertafter: "<string>h264</string>"
+    line: "    <string>hevc</string>\n    <string>mpeg2video</string>\n    <string>mpeg4</string>"
+    state: present
+    mode: "0644"
+    owner: jellyfin
+    group: jellyfin
+  # notify: restart jellyfin
+
+- name: Wait for config files to appear
+  ansible.builtin.wait_for:
+    path: "/etc/jellyfin/system.xml"
+
+- name: Update Jellyfin configuration.
+  ansible.builtin.lineinfile:
+    dest: "/etc/jellyfin/system.xml"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    mode: "0644"
+    owner: jellyfin
+    group: jellyfin
+  with_items:
+    - regexp: "EnableHwAcceleration>false"
+      line: "  <EnableHwAcceleration>true</EnableHwAcceleration>"
+    - regexp: "Interval>10000"
+      line: "    <Interval>5000</Interval>"
+  # notify: restart jellyfin

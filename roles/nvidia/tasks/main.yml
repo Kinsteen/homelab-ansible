@@ -1,0 +1,41 @@
+---
+- name: Ensure prerequisites packages
+  ansible.builtin.package:
+    name:
+      - dkms
+      - gcc
+      - linux-headers-amd64
+
+- name: Blacklist nouveau
+  community.general.kernel_blacklist:
+    name: nouveau
+    state: absent
+
+- name: Unload nouveau kernel module
+  block:
+    - name: Ensure module is unloaded
+      community.general.modprobe:
+        name: 'nouveau'
+        state: absent
+  rescue:
+    - name: Nouveau is not unloaded, rebooting
+      ansible.builtin.reboot:
+    - name: Ensure module is unloaded
+      community.general.modprobe:
+        name: 'nouveau'
+        state: absent
+
+- name: Check installed nvidia driver version
+  ansible.builtin.shell: |
+    set -o pipefail
+    nvidia-modprobe --version |
+      grep -oP 'version \K[[:digit:]\.]+'
+  args:
+    executable: /bin/bash
+  register: __nvidia_driver_installed_version
+  check_mode: false
+  changed_when: __nvidia_driver_installed_version.stdout != nvidia_driver_version
+  failed_when: false
+  notify:
+    - download nvidia driver
+    - install nvidia driver

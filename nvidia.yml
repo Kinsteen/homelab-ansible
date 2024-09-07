@@ -1,0 +1,5 @@
+- name: Setup Nvidia driver
+  hosts: proxmox_main
+  remote_user: server
+  roles:
+    - { name: nvidia, become: true }

@@ -1,0 +1,48 @@
+---
+- name: Ensure keyrings directory exists.
+  ansible.builtin.file:
+    path: "/etc/apt/keyrings"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+    state: directory
+
+- name: Downloads Jellyfin keyring.
+  ansible.builtin.get_url:
+    url: https://repo.jellyfin.org/jellyfin_team.gpg.key
+    dest: /etc/apt/keyrings/jellyfin.asc
+    owner: "root"
+    group: "root"
+    mode: "0644"
+
+- name: Add APT list file.
+  ansible.builtin.deb822_repository:
+    name: jellyfin
+    types: deb
+    uris: https://repo.jellyfin.org/{{ ansible_distribution | lower }}
+    suites: "{{ ansible_distribution_release }}"
+    components:
+      - main
+      - unstable
+    architectures: amd64
+    signed_by: /etc/apt/keyrings/jellyfin.asc
+
+- name: Install Jellyfin.
+  ansible.builtin.package:
+    name:
+      - jellyfin
+
+
+- name: Ensure Jellyfin is running and enabled at boot.
+  ansible.builtin.service:
+    name: jellyfin
+    state: started
+    enabled: true
+
+- name: Configure Jellyfin
+  ansible.builtin.include_tasks: config.yml
+
+- name: Ensure Jellyfin is restarted.
+  ansible.builtin.service:
+    name: jellyfin
+    state: restarted
