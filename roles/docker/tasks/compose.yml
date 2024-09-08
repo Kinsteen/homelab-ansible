@@ -1,0 +1,26 @@
+---
+- name: Ensure docker compose file path exists
+  ansible.builtin.file:
+    path: "{{ docker_compose_file_path }}"
+    state: directory
+    mode: "755"
+
+- name: Copy Docker compose file.
+  ansible.builtin.copy:
+    dest: "{{ docker_compose_file_path }}/docker-compose.yml"
+    content: "{{ docker_compose_content }}"
+    mode: "644"
+
+- name: Copy .env file
+  ansible.builtin.copy:
+    dest: "{{ docker_compose_file_path }}/.env"
+    content: "{{ docker_compose_env }}"
+    mode: "600"
+    user: "root"
+    group: "root"
+  when: docker_compose_env is defined
+
+- name: Start compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ docker_compose_file_path }}"
+    state: present

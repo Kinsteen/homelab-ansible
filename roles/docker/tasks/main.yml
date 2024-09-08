@@ -1,0 +1,7 @@
+---
+- name: Ensure Docker is installed
+  ansible.builtin.include_tasks: install.yml
+
+- name: Use Docker compose
+  ansible.builtin.include_tasks: compose.yml
+  when: docker_compose_file_path is defined and docker_compose_content is defined

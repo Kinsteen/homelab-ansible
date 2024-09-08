@@ -1,0 +1,50 @@
+---
+- name: Ensure old Docker packages are gone
+  ansible.builtin.package:
+    name:
+      - docker.io
+      - docker-compose
+      - docker-doc
+      - podman-docker
+      - containerd
+      - runc
+    state: absent
+
+- name: Ensure keyrings directory exists.
+  ansible.builtin.file:
+    path: "/etc/apt/keyrings"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+    state: directory
+
+- name: Downloads Docker keyring.
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    owner: "root"
+    group: "root"
+    mode: "0644"
+
+- name: Add APT list file.
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/{{ ansible_distribution | lower }}
+    suites: "{{ ansible_distribution_release }}"
+    components: stable
+    architectures: amd64
+    signed_by: /etc/apt/keyrings/docker.asc
+
+- name: APT update
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Ensure Docker is installed
+  ansible.builtin.package:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
