@@ -1,0 +1,126 @@
+---
+- name: Create Authentik container
+  hosts: proxmox
+  remote_user: server
+  roles:
+    - role: proxmox
+      vars:
+        proxmox_provision: true
+        proxmox_vm_id: 185
+        proxmox_node: proxima
+        proxmox_api_user: root@pam
+        proxmox_api_host: 192.168.1.130
+        proxmox_vm_hostname: authentik-test
+        proxmox_vm_password: authentik
+        proxmox_vm_ostemplate: debian-12-standard_12.2-1_amd64.tar.zst
+        proxmox_vm_disk_size: 5
+        proxmox_vm_cores: 2
+        proxmox_vm_memory: 2048
+
+- name: Update containers
+  hosts:
+    - 192.168.1.185
+  roles:
+    - role: proxmox
+      vars:
+        proxmox_setup_container: true
+
+- name: Install authentik
+  hosts:
+    - 192.168.1.185
+  tasks:
+    - name: Wait for container to be up
+      ansible.builtin.wait_for_connection:
+  roles:
+    - name: Authentik
+      role: docker
+      vars:
+        docker_compose_file_path: "/root/authentik"
+        docker_compose_content: |
+          services:
+            postgresql:
+              image: docker.io/library/postgres:16-alpine
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+                start_period: 20s
+                interval: 30s
+                retries: 5
+                timeout: 5s
+              volumes:
+                - database:/var/lib/postgresql/data
+              environment:
+                POSTGRES_PASSWORD: ${PG_PASS:?database password required}
+                POSTGRES_USER: ${PG_USER:-authentik}
+                POSTGRES_DB: ${PG_DB:-authentik}
+              env_file:
+                - .env
+            redis:
+              image: docker.io/library/redis:alpine
+              command: --save 60 1 --loglevel warning
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+                start_period: 20s
+                interval: 30s
+                retries: 5
+                timeout: 3s
+              volumes:
+                - redis:/data
+            server:
+              image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.8.0}
+              restart: unless-stopped
+              command: server
+              environment:
+                AUTHENTIK_REDIS__HOST: redis
+                AUTHENTIK_POSTGRESQL__HOST: postgresql
+                AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+                AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+                AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+              volumes:
+                - ./media:/media
+                - ./custom-templates:/templates
+              env_file:
+                - .env
+              ports:
+                - "${COMPOSE_PORT_HTTP:-9000}:9000"
+                - "${COMPOSE_PORT_HTTPS:-9443}:9443"
+              depends_on:
+                - postgresql
+                - redis
+            worker:
+              image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.8.0}
+              restart: unless-stopped
+              command: worker
+              environment:
+                AUTHENTIK_REDIS__HOST: redis
+                AUTHENTIK_POSTGRESQL__HOST: postgresql
+                AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+                AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+                AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+              # `user: root` and the docker socket volume are optional.
+              # See more for the docker socket integration here:
+              # https://goauthentik.io/docs/outposts/integrations/docker
+              # Removing `user: root` also prevents the worker from fixing the permissions
+              # on the mounted folders, so when removing this make sure the folders have the correct UID/GID
+              # (1000:1000 by default)
+              user: root
+              volumes:
+                - /var/run/docker.sock:/var/run/docker.sock
+                - ./media:/media
+                - ./certs:/certs
+                - ./custom-templates:/templates
+              env_file:
+                - .env
+              depends_on:
+                - postgresql
+                - redis
+
+          volumes:
+            database:
+              driver: local
+            redis:
+              driver: local
+        docker_compose_env: |
+          PG_PASS={{ authentik_pg_pass }}
+          AUTHENTIK_SECRET_KEY={{ authentik_secret_key }}

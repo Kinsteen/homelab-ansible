@@ -1,0 +1,30 @@
+- name: Create Docker container
+  hosts: proxmox
+  remote_user: server
+  roles:
+    - role: proxmox
+      vars:
+        proxmox_provision: true
+        proxmox_vm_id: 180
+        proxmox_node: proxima
+        proxmox_api_user: root@pam
+        proxmox_api_host: 192.168.1.130
+        proxmox_vm_hostname: docker-test
+        proxmox_vm_password: docker
+        proxmox_vm_ostemplate: debian-12-standard_12.2-1_amd64.tar.zst
+        proxmox_vm_disk_size: 5
+        proxmox_vm_cores: 1
+        proxmox_vm_memory: 1024
+
+- name: Install Docker
+  hosts:
+    - 192.168.1.180
+  tasks:
+    - name: Wait for container to be up
+      retries: 30
+      ansible.builtin.wait_for_connection:
+  roles:
+    - role: proxmox
+      vars:
+        proxmox_setup_container: true
+    - role: docker

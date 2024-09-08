@@ -1,0 +1,85 @@
+---
+- name: Install Docker
+  hosts: vaultwarden
+  remote_user: root
+  roles:
+    - name: Install Docker
+      role: docker
+
+- name: Install Vaultwarden
+  hosts: vaultwarden
+  tasks:
+    - name: Ensure directory exists.
+      ansible.builtin.file:
+        path: "/root/vaultwarden"
+        owner: "root"
+        group: "root"
+        mode: "0755"
+        state: directory
+
+    - name: Install compose file.
+      ansible.builtin.copy:
+        dest: "/root/vaultwarden/docker-compose.yml"
+        mode: "644"
+        content: |
+          services:
+            vaultwarden:
+              image: vaultwarden/server:latest
+              container_name: vaultwarden
+              restart: unless-stopped
+              environment:
+                DOMAIN: "https://vault.francon.eu"  # required when using a reverse proxy
+                SIGNUPS_ALLOWED: "true" # Deactivate this with "false" after you have created your account so that no strangers can register
+                DATABASE_URL: postgresql://vaultwarden:{{ vaultwarden_pg_pass }}@postgresql:5432/vaultwarden
+                ADMIN_TOKEN: {{ vaultwarden_admin_token }}
+              volumes:
+                - ./vw-data:/data # the path before the : can be changed
+              ports:
+                - 80:80
+            postgresql:
+              image: docker.io/library/postgres:16-alpine
+              restart: unless-stopped
+              volumes:
+                - database:/var/lib/postgresql/data
+              environment:
+                POSTGRES_PASSWORD: {{ vaultwarden_pg_pass }}
+                POSTGRES_USER: vaultwarden
+                POSTGRES_DB: vaultwarden
+
+          volumes:
+            database:
+              driver: local
+
+    - name: Start database
+      community.docker.docker_compose_v2:
+        project_src: "/root/vaultwarden"
+        services:
+          - postgresql
+        state: present
+
+    - name: Check for local backup to restore
+      delegate_to: localhost
+      ansible.builtin.stat:
+        path: ./vaultwarden/backup.sql
+      register: backup_file
+
+    - name: Copy backup on remote
+      ansible.builtin.copy:
+        dest: "/root/vaultwarden/dump.sql"
+        src: ./vaultwarden/backup.sql
+        mode: "600"
+      when: backup_file.exists
+
+    - name: Restore backup
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          cat dump.sql | docker exec -i vaultwarden-postgresql-1 psql -U vaultwarden
+        chdir: "/root/vaultwarden"
+      changed_when: true
+      when: backup_file.exists
+
+    - name: Start services
+      community.docker.docker_compose_v2:
+        project_src: "/root/vaultwarden"
+        state: present

@@ -1,6 +1,0 @@
-- name: My first play
-  hosts: proxmox_main
-  remote_user: server
-  roles:
-    - name: packages
-      become: true

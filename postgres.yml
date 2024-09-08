@@ -1,0 +1,10 @@
+- name: Setup Nvidia driver
+  hosts: proxmox_main
+  remote_user: server
+  roles:
+    - name: postgres
+      become: true
+      vars:
+        postgres_db_name: db_test
+        postgres_db_user: db_user_test
+        postgres_db_password: db_test_password

@@ -1,0 +1,24 @@
+- name: Create LXC container
+  hosts: proxmox
+  remote_user: server
+  roles:
+    - role: proxmox
+      vars:
+        proxmox_provision: true
+        proxmox_vm_id: "{{ id }}"
+        proxmox_node: proxima
+        proxmox_api_user: root@pam
+        proxmox_api_host: 192.168.1.130
+        proxmox_vm_hostname: "{{ vm_name }}"
+        proxmox_vm_password: "{{ pass }}"
+        proxmox_vm_ostemplate: debian-12-standard_12.2-1_amd64.tar.zst
+        proxmox_vm_disk_size: "{{ size | default('8') }}"
+        proxmox_vm_cores: "{{ cores | default('1') }}"
+        proxmox_vm_memory: "{{ memory | default('1024') }}"
+
+- name: Setup container
+  hosts: "192.168.1.{{ id }}"
+  roles:
+    - role: proxmox
+      vars:
+        proxmox_setup_container: true

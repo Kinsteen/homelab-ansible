@@ -1,0 +1,38 @@
+---
+- name: Ensure python package proxmox
+  become: true
+  ansible.builtin.package:
+    name: python3-proxmoxer
+    state: present
+
+- name: Create Proxmox LXC
+  community.general.proxmox:
+    vmid: "{{ proxmox_vm_id }}"
+    node: "{{ proxmox_node }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    hostname: "{{ proxmox_vm_hostname }}"
+    password: "{{ proxmox_vm_password }}"
+    ostemplate: 'local-storage:vztmpl/{{ proxmox_vm_ostemplate }}' # pveam list local-storage
+    disk: 'local:{{ proxmox_vm_disk_size }}'
+    netif:
+      net0: "name=eth0,gw=192.168.1.1,ip=192.168.1.{{ proxmox_vm_id }}/24,bridge=vmbr0"
+    cores: "{{ proxmox_vm_cores | default('1') }}"
+    features:
+      - nesting=1
+    memory: "{{ proxmox_vm_memory | default('1024') }}"
+    swap: "{{ proxmox_vm_swap | default('1024') }}"
+    onboot: true
+    pubkey: |
+      ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEqHRsQleFevrmSKxKfraXgJ5a5HnAFf9EMfl39ab8le root@North
+    state: present
+
+- name: Start Proxmox LXC
+  community.general.proxmox:
+    vmid: "{{ proxmox_vm_id }}"
+    node: "{{ proxmox_node }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    state: started

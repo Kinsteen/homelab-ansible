@@ -16,7 +16,7 @@
     dest: "{{ docker_compose_file_path }}/.env"
     content: "{{ docker_compose_env }}"
     mode: "600"
-    user: "root"
+    owner: "root"
     group: "root"
   when: docker_compose_env is defined
 

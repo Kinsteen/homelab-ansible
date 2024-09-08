@@ -16,7 +16,3 @@
           - neovim
           - tree
         state: present
-    - name: Install fail2ban (Debian).
-      ansible.builtin.package:
-        name: fail2ban
-        state: present

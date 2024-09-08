@@ -1,0 +1,4 @@
+- To connect to DB: `sudo -u postgres psql`
+- List db: `\l`
+- List users: `\du`
+- (in db) Show tables: `\dt`

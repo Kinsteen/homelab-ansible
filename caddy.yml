@@ -1,0 +1,42 @@
+---
+- name: Install and setup Caddy.
+  hosts: all
+  tasks:
+    - name: Ensure keyrings directory exists.
+      ansible.builtin.file:
+        path: "/etc/apt/keyrings"
+        owner: "root"
+        group: "root"
+        mode: "0755"
+        state: directory
+
+    - name: Downloads Caddy keyring.
+      ansible.builtin.get_url:
+        url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+        dest: /etc/apt/keyrings/caddy.asc
+        owner: "root"
+        group: "root"
+        mode: "0644"
+
+    - name: Add APT list file.
+      ansible.builtin.deb822_repository:
+        name: caddy
+        types: deb
+        uris: https://dl.cloudsmith.io/public/caddy/stable/deb/{{ ansible_distribution | lower }}
+        suites: "any-version"
+        components: main
+        signed_by: /etc/apt/keyrings/caddy.asc
+
+    - name: Ensure Caddy is installed.
+      ansible.builtin.apt:
+        update_cache: true
+        package:
+          - caddy
+
+    - name: Create configuration
+      ansible.builtin.copy:
+        dest: /etc/caddy/Caddyfile
+        src: caddy/Caddyfile
+        mode: "644"
+        owner: "root"
+        group: "root"

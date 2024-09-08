@@ -1,0 +1,21 @@
+- name: Provision container
+  ansible.builtin.include_tasks: provision.yml
+  when: proxmox_provision is defined and proxmox_provision
+
+- name: Setup container
+  when: proxmox_setup_container is defined and proxmox_setup_container
+  block:
+    - name: Wait for container to be up
+      ansible.builtin.wait_for_connection:
+      retries: 60
+
+    - name: Update packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: true
+
+    - name: Generic packages install
+      ansible.builtin.package:
+        name:
+          - htop
+          - neovim

@@ -1,0 +1,40 @@
+---
+- name: Ensure packages are installed
+  ansible.builtin.package:
+    name:
+      - postgresql
+      - acl
+      - python3-psycopg2
+  become: true
+
+- name: Ensure service is started
+  ansible.builtin.service:
+    name: postgresql # probably not, the name depends on the instance
+    state: started
+    enabled: true
+  become: true
+
+- name: Create database
+  community.postgresql.postgresql_db:
+    name: "{{ postgres_db_name }}"
+    state: present
+  become: true
+  become_user: postgres
+
+- name: Create database user
+  community.postgresql.postgresql_user:
+    name: "{{ postgres_db_user }}"
+    state: present
+    password: "{{ postgres_db_password }}"
+  become: true
+  become_user: postgres
+
+- name: Grant db user access to app db
+  community.postgresql.postgresql_privs:
+    type: database
+    database: "{{ postgres_db_name }}"
+    roles: "{{ postgres_db_user }}"
+    grant_option: false
+    privs: all
+  become: true
+  become_user: postgres
