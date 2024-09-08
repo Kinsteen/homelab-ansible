@@ -1,4 +1,15 @@
 ---
+- name: check if uninstall nvidia driver
+  ansible.builtin.command: command -v nvidia-smi
+  register: __nvidia_driver_nvidia_smi
+  failed_when: false
+  changed_when: __nvidia_driver_nvidia_smi.rc == 0 # If command exists then we uninstall
+  notify: uninstall nvidia driver
+
+- name: uninstall nvidia driver
+  ansible.builtin.command:
+    cmd: /var/lib/nvidia-ansible/nvidia_driver.run --silent --uninstall
+
 - name: download nvidia driver
   ansible.builtin.get_url:
     url: '{{ nvidia_driver_url }}'

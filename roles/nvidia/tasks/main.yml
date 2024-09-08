@@ -17,7 +17,7 @@
       community.general.modprobe:
         name: 'nouveau'
         state: absent
-  rescue:
+  rescue: # Rescue not tested
     - name: Nouveau is not unloaded, rebooting
       ansible.builtin.reboot:
     - name: Ensure module is unloaded
@@ -37,5 +37,6 @@
   changed_when: __nvidia_driver_installed_version.stdout != nvidia_driver_version
   failed_when: false
   notify:
+    - check if uninstall nvidia driver
     - download nvidia driver
     - install nvidia driver
