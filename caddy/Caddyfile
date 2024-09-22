@@ -1,11 +1,3 @@
-(admin_redir) {
-    @admin {
-        path /admin*
-        not remote_ip private_ranges
-    }
-    redir @admin /
-}
-
 vault.francon.eu {
   log {
     level INFO
@@ -49,7 +41,11 @@ vault.francon.eu {
 #   }
 
   # Uncomment to allow access to the admin interface only from local networks
-  import admin_redir
+  @admin {
+    path /admin*
+    not remote_ip private_ranges
+  }
+  redir @admin /
 
   # Proxy everything to Rocket
   # if located at a sub-path the reverse_proxy line will look like:
@@ -57,7 +53,7 @@ vault.francon.eu {
   reverse_proxy 192.168.1.157:80 {
        # Send the true remote IP to Rocket, so that Vaultwarden can put this in the
        # log, so that fail2ban can ban the correct IP.
-       header_up X-Real-IP {remote_host}
+       header_up X-Real-IP {http.request.header.Cf-Connecting-Ip}
        # If you use Cloudflare proxying, replace remote_host with http.request.header.Cf-Connecting-Ip
        # See https://developers.cloudflare.com/support/troubleshooting/restoring-visitor-ips/restoring-original-visitor-ips/
        # and https://caddy.community/t/forward-auth-copy-headers-value-not-replaced/16998/4

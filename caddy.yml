@@ -34,9 +34,62 @@
           - caddy
 
     - name: Create configuration
-      ansible.builtin.copy:
+      ansible.builtin.template:
         dest: /etc/caddy/Caddyfile
-        src: caddy/Caddyfile
+        src: caddy/Caddyfile.j2
         mode: "644"
         owner: "root"
         group: "root"
+      vars:
+        auth:
+          address: 192.168.1.156:9000
+        sites:
+          - service: authentik
+            subdomain: auth
+            ip: 192.168.1.156
+            port: 9000
+          - service: drive
+            ip: 192.168.1.230
+            port: 80
+          - service: jellyfin
+            subdomain: media
+            ip: 192.168.1.130
+            port: 8096
+          - service: sonarr
+            ip: 192.168.1.150
+            port: 8989
+            authentik_forward_auth: true
+          - service: radarr
+            ip: 192.168.1.150
+            port: 7878
+            authentik_forward_auth: true
+          - service: prowlarr
+            ip: 192.168.1.150
+            port: 9696
+            authentik_forward_auth: true
+          - service: nas
+            ip: 192.168.1.230
+            port: 5667
+          - service: immich
+            ip: 192.168.1.130
+            port: 2283
+          - service: vaultwarden
+            subdomain: vault
+            ip: 192.168.1.157
+            port: 80
+            custom_rules_block: |
+              encode zstd gzip
+
+              @admin {
+                path /admin*
+                not remote_ip private_ranges
+              }
+              redir @admin /
+          - service: vpn
+            ip: 192.168.1.130
+            port: 8123
+
+    - name: Ensure Caddy is reloaded.
+      ansible.builtin.service:
+        name: caddy
+        state: reloaded

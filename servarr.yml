@@ -1,0 +1,164 @@
+- name: Servarr stack (prepare)
+  hosts:
+    - servarr
+  tasks:
+    - name: Ensure directory exists.
+      ansible.builtin.file:
+        path: "/root/transmission"
+        owner: "root"
+        group: "root"
+        mode: "0755"
+        state: directory
+    - name: Copy VPN wg0.conf
+      ansible.builtin.copy:
+        dest: "/root/transmission/wg0.conf"
+        mode: "0600"
+        content: |
+          [Interface]
+          PrivateKey = {{ wg_private_key }}
+          Address = 10.0.44.241/32, 2a0e:1c80:1337:1:10:0:44:241/128
+          DNS = 10.0.0.1, 2a0e:1c80:1337:1:10:0:0:1, 91.231.153.2
+          # docker inspect to get gateway
+          PostUp = ip route add 192.168.1.0/24 via 172.18.0.1
+          PreDown = ip route delete 192.168.1.0/24
+
+          [Peer]
+          PublicKey = s+vJxWBIZqSN6980ha0Nfk2EoMJa2j3FQ1NrSQERlE8=
+          AllowedIPs = 0.0.0.0/0, ::/0
+          Endpoint = fr-par.azirevpn.net:51820
+
+    - name: Unzip Flood
+      ansible.builtin.unarchive:
+        src: https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.zip
+        remote_src: true
+        dest: "/root/transmission"
+
+- name: Servarr stack (docker)
+  hosts:
+    - servarr
+  roles:
+    - name: Transmission
+      role: docker
+      vars:
+        docker_compose_file_path: "/root/transmission"
+        docker_compose_content: |
+          services:
+            wireguard:
+              image: linuxserver/wireguard:latest
+              cap_add:
+                - NET_ADMIN
+                - SYS_MODULE
+              sysctls:
+                - net.ipv6.conf.all.disable_ipv6=0
+                - net.ipv4.conf.all.src_valid_mark=1
+              environment:
+                - PUID=1000
+                - PGID=1000
+                - TZ=Europe/Paris
+              ports:
+                - "9091:9091/tcp"
+              volumes:
+                - ./wg0.conf:/config/wg_confs/wg0.conf
+                - /lib/modules:/lib/modules
+              restart: always
+            transmission:
+              image: linuxserver/transmission:latest
+              network_mode: "service:wireguard"
+              depends_on:
+                - wireguard
+              environment:
+                - PUID=1000
+                - PGID=1000
+                - TZ=Europe/Paris
+              env_file:
+                - .env
+              volumes:
+                - ./transmission-config:/config
+                - /downloads:/downloads
+                - ./watch:/watch
+                - ./flood-for-transmission:/flood
+              restart: always
+        docker_compose_env: |
+          USER=username
+          PASS=password
+          PEERPORT=54914
+          TRANSMISSION_WEB_HOME=/flood
+
+    - name: Sonarr
+      role: docker
+      vars:
+        docker_compose_file_path: "/root/sonarr"
+        docker_compose_content: |
+          services:
+            sonarr:
+              image: lscr.io/linuxserver/sonarr:latest
+              container_name: sonarr
+              environment:
+                - PUID=1000
+                - PGID=1000
+                - TZ=Europe/Paris
+              volumes:
+                - ./config:/config
+                - /nas:/nas
+              ports:
+                - 8989:8989
+              restart: unless-stopped
+
+    - name: Radarr
+      role: docker
+      vars:
+        docker_compose_file_path: "/root/radarr"
+        docker_compose_content: |
+          services:
+            radarr:
+              image: lscr.io/linuxserver/radarr:latest
+              container_name: radarr
+              environment:
+                - PUID=1000
+                - PGID=1000
+                - TZ=Europe/Paris
+              volumes:
+                - ./config:/config
+                - /nas:/nas
+              ports:
+                - 7878:7878
+              restart: unless-stopped
+
+    - name: Prowlarr
+      role: docker
+      vars:
+        docker_compose_file_path: "/root/prowlarr"
+        docker_compose_content: |
+          services:
+            prowlarr:
+              image: lscr.io/linuxserver/prowlarr:latest
+              container_name: prowlarr
+              environment:
+                - PUID=1000
+                - PGID=1000
+                - TZ=Europe/Paris
+              dns:
+                - 9.9.9.9
+                - 8.8.8.8
+              volumes:
+                - ./config:/config
+              ports:
+                - 9696:9696
+              restart: unless-stopped
+
+    - name: Flaresolver
+      role: docker
+      vars:
+        docker_compose_file_path: "/root/flaresolver"
+        docker_compose_content: |
+          services:
+            flaresolver:
+              image: ghcr.io/flaresolverr/flaresolverr:latest
+              container_name: flaresolver
+              environment:
+                - PUID=1000
+                - PGID=1000
+                - TZ=Europe/Paris
+              ports:
+                - 8191:8191
+              restart: unless-stopped

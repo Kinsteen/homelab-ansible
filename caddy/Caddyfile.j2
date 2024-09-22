@@ -1,0 +1,63 @@
+{
+    servers {
+        # Cloudflare
+        trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32 
+    }
+}
+
+(authentik_forward_auth) {
+    reverse_proxy /outpost.goauthentik.io/* {{ auth.address }}
+    forward_auth {{ auth.address }} {
+        uri /outpost.goauthentik.io/auth/caddy
+
+        # capitalization of the headers is important, otherwise they will be empty
+        copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+
+        # optional, in this config trust all private ranges, should probably be set to the outposts IP
+        trusted_proxies private_ranges
+    }
+}
+
+{% for site in sites %}
+{{ site.subdomain if site.subdomain is defined else site.service }}.francon.eu {
+    log {
+        level INFO
+        output file /var/log/caddy/{{ site.full_name if site.full_name is defined else site.service }}.log {
+            roll_size 10MB
+            roll_keep 10
+        }
+    }
+
+    route {
+        header {
+            X-XSS-Protection "0"
+            X-Frame-Options "DENY"
+            X-Content-Type-Options "nosniff"
+            -Server
+            -X-Powered-By
+            -Last-Modified
+{% if 'custom_rules_header' in site %}
+{{ site.custom_rules_header  | indent(12) }}
+{% endif%}
+        }
+{% if 'authentik_forward_auth' in site %}
+{% if site.authentik_forward_auth %}
+        import authentik_forward_auth
+{% endif %}
+{% endif %}
+{% if 'custom_rules_block' in site %}
+
+{{ site.custom_rules_block  | indent(8) }}
+{% endif%}
+
+        reverse_proxy {{ site.ip }}:{{ site.port }} {
+            header_up X-Real-IP {http.request.header.Cf-Connecting-Ip}
+{% if 'custom_rules_reverse_proxy' in site %}
+
+{{ site.custom_rules_reverse_proxy  | indent(12) }}
+{% endif%}
+        }
+    }
+}
+
+{% endfor %}
