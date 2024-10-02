@@ -31,7 +31,11 @@
     route {
         header {
             X-XSS-Protection "0"
+{% if 'frame_options' in site %}
+            X-Frame-Options "{{ site.frame_options }}"
+{% else %}
             X-Frame-Options "DENY"
+{% endif %}
             X-Content-Type-Options "nosniff"
             -Server
             -X-Powered-By

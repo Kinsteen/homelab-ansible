@@ -55,6 +55,7 @@
             subdomain: media
             ip: 192.168.1.130
             port: 8096
+            frame_options: SAMEORIGIN # Needed for Jellyfin-SSO
           - service: sonarr
             ip: 192.168.1.150
             port: 8989
