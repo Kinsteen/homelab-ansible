@@ -1,27 +1,13 @@
 ---
-- name: Install Docker
+- name: Install Docker and Vaultwarden compose
   hosts: vaultwarden
   remote_user: root
   roles:
     - name: Install Docker
       role: docker
-
-- name: Install Vaultwarden
-  hosts: vaultwarden
-  tasks:
-    - name: Ensure directory exists.
-      ansible.builtin.file:
-        path: "/root/vaultwarden"
-        owner: "root"
-        group: "root"
-        mode: "0755"
-        state: directory
-
-    - name: Install compose file.
-      ansible.builtin.copy:
-        dest: "/root/vaultwarden/docker-compose.yml"
-        mode: "644"
-        content: |
+      vars:
+        docker_compose_file_path: "/root/vaultwarden"
+        docker_compose_content: |
           services:
             vaultwarden:
               image: vaultwarden/server:latest
@@ -29,9 +15,7 @@
               restart: unless-stopped
               environment:
                 DOMAIN: "https://vault.francon.eu"  # required when using a reverse proxy
-                SIGNUPS_ALLOWED: "true" # Deactivate this with "false" after you have created your account so that no strangers can register
-                DATABASE_URL: postgresql://vaultwarden:{{ vaultwarden_pg_pass }}@postgresql:5432/vaultwarden
-                ADMIN_TOKEN: {{ vaultwarden_admin_token }}
+                DATABASE_URL: postgresql://vaultwarden:${POSTGRES_PASSWORD}@postgresql:5432/vaultwarden
               volumes:
                 - ./vw-data:/data # the path before the : can be changed
               ports:
@@ -42,44 +26,48 @@
               volumes:
                 - database:/var/lib/postgresql/data
               environment:
-                POSTGRES_PASSWORD: {{ vaultwarden_pg_pass }}
                 POSTGRES_USER: vaultwarden
                 POSTGRES_DB: vaultwarden
 
           volumes:
             database:
               driver: local
+        docker_compose_env: |
+          POSTGRES_PASSWORD={{ vaultwarden_pg_pass }}
+          ADMIN_TOKEN={{ vaultwarden_admin_token }}
 
-    - name: Start database
-      community.docker.docker_compose_v2:
-        project_src: "/root/vaultwarden"
-        services:
-          - postgresql
+- name: Setup backup script
+  hosts: vaultwarden
+  tasks:
+    - name: Ensure restic is installed
+      ansible.builtin.package:
+        name: restic
         state: present
 
-    - name: Check for local backup to restore
-      delegate_to: localhost
-      ansible.builtin.stat:
-        path: ./vaultwarden/backup.sql
-      register: backup_file
+    - name: Copy backup script
+      ansible.builtin.template:
+        src: backup/backup.sh.j2
+        dest: "/root/vaultwarden/backup.sh"
+        mode: "0600"
+        owner: root
+        group: root
+      vars:
+        folders: vw-data/attachments vw-data/config.json vw-data/rsa*
+        docker_postgres:
+          service: postgresql
+          username: vaultwarden
+          file: vaultwarden-database.sql
+        restic_repositories:
+          - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/vaultwarden
+            repository_password: "{{ vaultwarden_restic_password }}"
+            aws_access_key_id: "{{ vaultwarden_restic_aws_access_key_id }}"
+            aws_secret_access_key: "{{ vaultwarden_restic_aws_secret_access_key }}"
+          - repository_url: /root/backup
+            repository_password: "{{ vaultwarden_restic_password }}"
 
-    - name: Copy backup on remote
-      ansible.builtin.copy:
-        dest: "/root/vaultwarden/dump.sql"
-        src: ./vaultwarden/backup.sql
-        mode: "600"
-      when: backup_file.exists
-
-    - name: Restore backup
-      ansible.builtin.shell:
-        cmd: |
-          set -o pipefail
-          cat dump.sql | docker exec -i vaultwarden-postgresql-1 psql -U vaultwarden
-        chdir: "/root/vaultwarden"
-      changed_when: true
-      when: backup_file.exists
-
-    - name: Start services
-      community.docker.docker_compose_v2:
-        project_src: "/root/vaultwarden"
-        state: present
+    - name: Setup backup Cron
+      ansible.builtin.cron:
+        name: "vaultwarden backup"
+        minute: "5"
+        hour: "4"
+        job: "bash /root/vaultwarden/backup.sh >/dev/null 2>&1"

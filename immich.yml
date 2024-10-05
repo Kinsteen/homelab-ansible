@@ -1,4 +1,4 @@
-- name: Install Docker
+- name: Install Docker and Immich compose
   remote_user: server
   become: true
   hosts:
@@ -44,7 +44,7 @@
               container_name: immich_machine_learning
               # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
               # Example tag: ${IMMICH_VERSION:-release}-cuda
-              image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+              image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
               deploy:
                 resources:
                   reservations:
@@ -105,9 +105,46 @@
 
           # Connection secret for postgres. You should change it to a random password
           # Please use only the characters `A-Za-z0-9`, without special characters or spaces
-          DB_PASSWORD=eb151fd907c044af970616d9dece94c1fd42cfabfc37eba706a627c967935a6e
+          DB_PASSWORD={{ immich_pg_pass }}
 
           # The values below this line do not need to be changed
           ###################################################################################
           DB_USERNAME=postgres
           DB_DATABASE_NAME=immich
+
+- name: Setup backup script
+  remote_user: server
+  become: true
+  hosts:
+    - proxmox
+  tasks:
+    - name: Ensure restic is installed
+      ansible.builtin.package:
+        name: restic
+        state: present
+
+    - name: Copy backup script
+      ansible.builtin.template:
+        src: backup/backup.sh.j2
+        dest: "/root/immich/backup.sh"
+        mode: "0600"
+        owner: root
+        group: root
+      vars:
+        folders: /mnt/NAS/Immich
+        docker_postgres:
+          service: database
+          username: postgres
+          file: /mnt/NAS/Immich/immich-database.sql
+        restic_repositories:
+          - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/immich2
+            repository_password: "{{ immich_restic_password }}"
+            aws_access_key_id: "{{ immich_restic_aws_access_key_id }}"
+            aws_secret_access_key: "{{ immich_restic_aws_secret_access_key }}"
+
+    - name: Setup backup Cron
+      ansible.builtin.cron:
+        name: "immich backup"
+        minute: "5"
+        hour: "4"
+        job: "bash /root/immich/backup.sh >/dev/null 2>&1"
