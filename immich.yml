@@ -112,39 +112,18 @@
           DB_USERNAME=postgres
           DB_DATABASE_NAME=immich
 
-- name: Setup backup script
-  remote_user: server
-  become: true
-  hosts:
-    - proxmox
-  tasks:
-    - name: Ensure restic is installed
-      ansible.builtin.package:
-        name: restic
-        state: present
-
-    - name: Copy backup script
-      ansible.builtin.template:
-        src: backup/backup.sh.j2
-        dest: "/root/immich/backup.sh"
-        mode: "0600"
-        owner: root
-        group: root
+    - name: Install backup script
+      role: backup
       vars:
-        folders: /mnt/NAS/Immich
-        docker_postgres:
+        backup_name: vaultwarden
+        backup_root: "/root/immich"
+        backup_folders: /root/immich
+        backup_docker_postgres:
           service: database
           username: postgres
           file: /mnt/NAS/Immich/immich-database.sql
-        restic_repositories:
+        backup_restic_repositories:
           - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/immich2
             repository_password: "{{ immich_restic_password }}"
             aws_access_key_id: "{{ immich_restic_aws_access_key_id }}"
             aws_secret_access_key: "{{ immich_restic_aws_secret_access_key }}"
-
-    - name: Setup backup Cron
-      ansible.builtin.cron:
-        name: "immich backup"
-        minute: "5"
-        hour: "4"
-        job: "bash /root/immich/backup.sh >/dev/null 2>&1"

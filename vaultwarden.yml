@@ -36,38 +36,20 @@
           POSTGRES_PASSWORD={{ vaultwarden_pg_pass }}
           ADMIN_TOKEN={{ vaultwarden_admin_token }}
 
-- name: Setup backup script
-  hosts: vaultwarden
-  tasks:
-    - name: Ensure restic is installed
-      ansible.builtin.package:
-        name: restic
-        state: present
-
-    - name: Copy backup script
-      ansible.builtin.template:
-        src: backup/backup.sh.j2
-        dest: "/root/vaultwarden/backup.sh"
-        mode: "0600"
-        owner: root
-        group: root
+    - name: Install backup script
+      role: backup
       vars:
-        folders: vw-data/attachments vw-data/config.json vw-data/rsa*
-        docker_postgres:
+        backup_name: vaultwarden
+        backup_root: "/root/vaultwarden"
+        backup_folders: vw-data/attachments vw-data/config.json vw-data/rsa*
+        backup_docker_postgres:
           service: postgresql
           username: vaultwarden
           file: vaultwarden-database.sql
-        restic_repositories:
+        backup_restic_repositories:
           - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/vaultwarden
             repository_password: "{{ vaultwarden_restic_password }}"
             aws_access_key_id: "{{ vaultwarden_restic_aws_access_key_id }}"
             aws_secret_access_key: "{{ vaultwarden_restic_aws_secret_access_key }}"
           - repository_url: /root/backup
             repository_password: "{{ vaultwarden_restic_password }}"
-
-    - name: Setup backup Cron
-      ansible.builtin.cron:
-        name: "vaultwarden backup"
-        minute: "5"
-        hour: "4"
-        job: "bash /root/vaultwarden/backup.sh >/dev/null 2>&1"
