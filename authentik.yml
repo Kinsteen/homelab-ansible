@@ -6,33 +6,26 @@
     - role: proxmox
       vars:
         proxmox_provision: true
-        proxmox_vm_id: 185
+        proxmox_vm_id: 156
         proxmox_node: proxima
         proxmox_api_user: root@pam
         proxmox_api_host: 192.168.1.130
-        proxmox_vm_hostname: authentik-test
+        proxmox_vm_hostname: authentik
         proxmox_vm_password: authentik
         proxmox_vm_ostemplate: debian-12-standard_12.2-1_amd64.tar.zst
-        proxmox_vm_disk_size: 5
+        proxmox_vm_disk_size: 8
         proxmox_vm_cores: 2
         proxmox_vm_memory: 2048
 
-- name: Update containers
-  hosts:
-    - 192.168.1.185
+- name: Install authentik
+  hosts: authentik
   roles:
-    - role: proxmox
+    - name: Proxmox container setup
+      role: proxmox
       vars:
         proxmox_setup_container: true
 
-- name: Install authentik
-  hosts:
-    - 192.168.1.185
-  tasks:
-    - name: Wait for container to be up
-      ansible.builtin.wait_for_connection:
-  roles:
-    - name: Authentik
+    - name: Install Authentik with Docker compose
       role: docker
       vars:
         docker_compose_file_path: "/root/authentik"
@@ -124,3 +117,20 @@
         docker_compose_env: |
           PG_PASS={{ authentik_pg_pass }}
           AUTHENTIK_SECRET_KEY={{ authentik_secret_key }}
+          AUTHENTIK_TAG=2024.8.3
+
+    - name: Install backup script
+      role: backup
+      vars:
+        backup_name: authentik
+        backup_root: "/root/authentik"
+        backup_folders: media/
+        backup_docker_postgres:
+          service: postgresql
+          username: authentik
+          file: database.sql
+        backup_restic_repositories:
+          - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/authentik
+            repository_password: "{{ authentik_restic_password }}"
+            aws_access_key_id: "{{ authentik_restic_aws_access_key_id }}"
+            aws_secret_access_key: "{{ authentik_restic_aws_secret_access_key }}"

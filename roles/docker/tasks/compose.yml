@@ -10,6 +10,7 @@
     dest: "{{ docker_compose_file_path }}/docker-compose.yml"
     content: "{{ docker_compose_content }}"
     mode: "644"
+  register: compose_copy
 
 - name: Copy .env file
   ansible.builtin.copy:
@@ -19,8 +20,15 @@
     owner: "root"
     group: "root"
   when: docker_compose_env is defined
+  register: env_copy
 
-- name: Start compose
+- name: Down compose if compose file or env file changed
+  community.docker.docker_compose_v2:
+    project_src: "{{ docker_compose_file_path }}"
+    state: absent
+  when: compose_copy.changed or env_copy.changed
+
+- name: Up compose
   community.docker.docker_compose_v2:
     project_src: "{{ docker_compose_file_path }}"
     state: present

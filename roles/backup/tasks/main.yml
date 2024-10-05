@@ -12,6 +12,7 @@
     owner: root
     group: root
     trim_blocks: true
+    lstrip_blocks: true
 
 - name: Setup backup Cron
   ansible.builtin.cron:

@@ -24,8 +24,6 @@
     memory: "{{ proxmox_vm_memory | default('1024') }}"
     swap: "{{ proxmox_vm_swap | default('1024') }}"
     onboot: true
-    pubkey: |
-      ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEqHRsQleFevrmSKxKfraXgJ5a5HnAFf9EMfl39ab8le root@North
     state: present
 
 - name: Start Proxmox LXC

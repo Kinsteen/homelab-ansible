@@ -115,9 +115,9 @@
     - name: Install backup script
       role: backup
       vars:
-        backup_name: vaultwarden
+        backup_name: immich
         backup_root: "/root/immich"
-        backup_folders: /root/immich
+        backup_folders: /mnt/NAS/Immich
         backup_docker_postgres:
           service: database
           username: postgres

@@ -13,18 +13,18 @@
     validate: 'sshd -T -f %s'
     mode: 644
   with_items:
-    - regexp: "^PasswordAuthentication"
+    - regexp: "^\\#? ?PasswordAuthentication"
       line: "PasswordAuthentication no"
-    - regexp: "^PermitRootLogin"
+    - regexp: "^\\#? ?PermitRootLogin"
       line: "PermitRootLogin no"
-    - regexp: "^UseDNS"
+    - regexp: "^\\#? ?UseDNS"
       line: "UseDNS no"
-    - regexp: "^PermitEmptyPasswords"
+    - regexp: "^\\#? ?PermitEmptyPasswords"
       line: "PermitEmptyPasswords no"
-    - regexp: "^ChallengeResponseAuthentication"
+    - regexp: "^\\#? ?ChallengeResponseAuthentication"
       line: "ChallengeResponseAuthentication no"
-    - regexp: "^GSSAPIAuthentication"
+    - regexp: "^\\#? ?GSSAPIAuthentication"
       line: "GSSAPIAuthentication no"
-    - regexp: "^X11Forwarding"
+    - regexp: "^\\#? ?X11Forwarding"
       line: "X11Forwarding no"
   notify: restart ssh

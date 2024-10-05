@@ -19,3 +19,33 @@
         name:
           - htop
           - neovim
+
+    - name: Add SSH key retrieval script
+      ansible.builtin.copy:
+        dest: /usr/local/bin/ssh_keys.sh
+        mode: "0755"
+        owner: root
+        group: root
+        content: |
+          #!/bin/sh
+          curl https://github.com/kinsteen.keys
+
+    - name: Add config to sshd
+      ansible.builtin.lineinfile:
+        dest: "/etc/ssh/sshd_config"
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        mode: "0644"
+      with_items:
+        - regexp: "^\\#? ?AuthorizedKeysCommand "
+          line: "AuthorizedKeysCommand /usr/local/bin/ssh_keys.sh"
+        - regexp: "^\\#? ?AuthorizedKeysCommandUser "
+          line: "AuthorizedKeysCommandUser nobody"
+      register: sshd_config
+
+    - name: Restart SSH
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+      when: sshd_config.changed
