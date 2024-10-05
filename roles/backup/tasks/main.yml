@@ -11,6 +11,7 @@
     mode: "0600"
     owner: root
     group: root
+    trim_blocks: true
 
 - name: Setup backup Cron
   ansible.builtin.cron:

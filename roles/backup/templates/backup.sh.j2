@@ -1,24 +1,25 @@
 #!/bin/bash
 
 pushd $(dirname $0) >/dev/null
+
 {% for repo in backup_restic_repositories %}
 # START {{ repo.repository_url }}
 {% if backup_docker_postgres %}
-{%- set to_backup = backup_folders + " " + backup_docker_postgres.file|default("database.sql",true)  %}
-{%- else %}
-{%- set to_backup = backup_folders %}
+    {% set to_backup = backup_folders + " " + backup_docker_postgres.file|default("database.sql",true)  %}
+{% else %}
+    {% set to_backup = backup_folders %}
 {% endif -%}
 
 export RESTIC_REPOSITORY={{ repo.repository_url }}
 export RESTIC_PASSWORD={{ repo.repository_password }}
-{%- if "aws_access_key_id" in repo and "aws_secret_access_key" in repo %}
+{% if "aws_access_key_id" in repo and "aws_secret_access_key" in repo %}
 export AWS_ACCESS_KEY_ID={{ repo.aws_access_key_id }}
 export AWS_SECRET_ACCESS_KEY={{ repo.aws_secret_access_key }}
 {% endif %}
 
-{%- if backup_docker_postgres %}
+{% if backup_docker_postgres %}
 docker compose exec {{ backup_docker_postgres.service }} pg_dumpall --clean --if-exists --username={{ backup_docker_postgres.username }} > {{ backup_docker_postgres.file|default("database.sql",true) }}
-{%- endif %}
+{% endif %}
 
 if ! restic cat config >/dev/null 2>&1; then
     # Restic automatically does `mkdir -p` if necessary
@@ -27,6 +28,6 @@ fi
 
 restic backup {{ to_backup }}
 # END {{ repo.repository_url }}
-{%- endfor %}
 
+{% endfor %}
 popd >/dev/null
