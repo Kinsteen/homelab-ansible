@@ -11,15 +11,32 @@
         uri /outpost.goauthentik.io/auth/caddy
 
         # capitalization of the headers is important, otherwise they will be empty
-        copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+        copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name
 
         # optional, in this config trust all private ranges, should probably be set to the outposts IP
         trusted_proxies private_ranges
     }
 }
 
+(cors) {
+    @cors_preflight method OPTIONS
+    @cors header Origin {args.0}
+
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "{args.0}"
+        header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        header Access-Control-Allow-Headers "Accept, Accept-Encoding, Authorization, Cache-Control, Content-Type, Content-Length, Origin, X-Real-IP, X-CSRF-Token"
+        header Access-Control-Max-Age "3600"
+        respond "" 204
+    }
+}
+
 {% for site in sites %}
+{% if site.external_port is defined %}
+{{ site.subdomain if site.subdomain is defined else site.service }}.francon.eu:{{ site.external_port }} {
+{% else %}
 {{ site.subdomain if site.subdomain is defined else site.service }}.francon.eu {
+{% endif %}
     log {
         level INFO
         output file /var/log/caddy/{{ site.full_name if site.full_name is defined else site.service }}.log {
@@ -41,7 +58,7 @@
             -X-Powered-By
             -Last-Modified
 {% if 'custom_rules_header' in site %}
-{{ site.custom_rules_header  | indent(12) }}
+            {{ site.custom_rules_header  | indent(12) }}
 {% endif%}
         }
 {% if 'authentik_forward_auth' in site %}
@@ -51,14 +68,18 @@
 {% endif %}
 {% if 'custom_rules_block' in site %}
 
-{{ site.custom_rules_block  | indent(8) }}
+        {{ site.custom_rules_block | indent(8) }}
 {% endif%}
 
+{% if site.internal_port is defined %}
+        reverse_proxy {{ site.ip }}:{{ site.internal_port }} {
+{% else %}
         reverse_proxy {{ site.ip }}:{{ site.port }} {
+{% endif %}
             header_up X-Real-IP {http.request.header.Cf-Connecting-Ip}
 {% if 'custom_rules_reverse_proxy' in site %}
 
-{{ site.custom_rules_reverse_proxy  | indent(12) }}
+{{ site.custom_rules_reverse_proxy | indent(12) }}
 {% endif%}
         }
     }

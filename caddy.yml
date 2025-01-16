@@ -68,9 +68,24 @@
             ip: 192.168.1.150
             port: 9696
             authentik_forward_auth: true
+          - service: pterodactyl
+            subdomain: ptero
+            ip: 192.168.1.182
+            port: 80
+          - service: ptero-wing
+            subdomain: wing1
+            ip: 192.168.1.182
+            internal_port: 8080
+            external_port: 8080
+            custom_rules_block: |
+              import cors https://ptero.francon.eu
           - service: nas
-            ip: 192.168.1.230
-            port: 5667
+            ip: https://192.168.1.230
+            port: 5668
+            custom_rules_reverse_proxy: |
+              transport http {
+                tls_insecure_skip_verify
+              }
           - service: immich
             ip: 192.168.1.130
             port: 2283
