@@ -1,6 +1,6 @@
 ---
 - name: Install and setup Caddy.
-  hosts: all
+  hosts: caddy
   tasks:
     - name: Ensure keyrings directory exists.
       ansible.builtin.file:
@@ -68,6 +68,12 @@
             ip: 192.168.1.150
             port: 9696
             authentik_forward_auth: true
+          - service: mealie
+            ip: 192.168.1.183
+            port: 9925
+          - service: docs
+            ip: 192.168.1.151
+            port: 6875
           - service: pterodactyl
             subdomain: ptero
             ip: 192.168.1.182
