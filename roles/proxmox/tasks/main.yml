@@ -19,6 +19,9 @@
         name:
           - htop
           - neovim
+          - tree
+          - git
+          - curl
 
     - name: Add SSH key retrieval script
       ansible.builtin.copy:
