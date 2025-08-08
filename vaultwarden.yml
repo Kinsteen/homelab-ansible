@@ -4,8 +4,6 @@
   roles:
     - name: Proxmox container setup
       role: proxmox
-      vars:
-        proxmox_setup_container: true
 
     - name: Install Docker
       role: docker

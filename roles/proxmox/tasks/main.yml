@@ -1,9 +1,4 @@
-- name: Provision container
-  ansible.builtin.include_tasks: provision.yml
-  when: proxmox_provision is defined and proxmox_provision
-
 - name: Setup container
-  when: proxmox_setup_container is defined and proxmox_setup_container
   block:
     - name: Wait for container to be up
       ansible.builtin.wait_for_connection:
@@ -48,10 +43,10 @@
           line: "AuthorizedKeysCommand /usr/local/bin/ssh_keys.sh"
         - regexp: "^\\#? ?AuthorizedKeysCommandUser "
           line: "AuthorizedKeysCommandUser nobody"
-      register: sshd_config
+      register: proxmox_sshd_config
 
     - name: Restart SSH
       ansible.builtin.service:
         name: ssh
         state: restarted
-      when: sshd_config.changed
+      when: proxmox_sshd_config.changed

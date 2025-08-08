@@ -1,0 +1,87 @@
+---
+- name: Install Book container
+  hosts: book
+  roles:
+    - name: Proxmox container setup
+      role: proxmox
+
+    - name: Install Booklore with Docker compose
+      role: docker
+      vars:
+        docker_compose_file_path: "/root/booklore"
+        docker_compose_content: |
+          services:
+            booklore:
+              image: booklore/booklore:latest
+              container_name: booklore
+              environment:
+                - USER_ID=${APP_USER_ID}
+                - GROUP_ID=${APP_GROUP_ID}
+                - TZ=${TZ}
+                - DATABASE_URL=${DATABASE_URL}
+                - DATABASE_USERNAME=${DB_USER}
+                - DATABASE_PASSWORD=${DB_PASSWORD}
+                - BOOKLORE_PORT=${BOOKLORE_PORT}
+              depends_on:
+                mariadb:
+                  condition: service_healthy
+              ports:
+                - "${BOOKLORE_PORT}:${BOOKLORE_PORT}"
+              volumes:
+                - ./data:/app/data
+                - ./books:/books
+                - ./bookdrop:/bookdrop
+              restart: unless-stopped
+
+            mariadb:
+              image: lscr.io/linuxserver/mariadb:11.4.5
+              container_name: mariadb
+              environment:
+                - PUID=${DB_USER_ID}
+                - PGID=${DB_GROUP_ID}
+                - TZ=${TZ}
+                - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+                - MYSQL_DATABASE=${MYSQL_DATABASE}
+                - MYSQL_USER=${DB_USER}
+                - MYSQL_PASSWORD=${DB_PASSWORD}
+              volumes:
+                - ./mariadb/config:/config
+              restart: unless-stopped
+              healthcheck:
+                test: [ "CMD", "mariadb-admin", "ping", "-h", "localhost" ]
+                interval: 5s
+                timeout: 5s
+                retries: 10
+        docker_compose_env: |
+          # BookLore Application Settings
+          APP_USER_ID=0
+          APP_GROUP_ID=0
+          TZ=Europe/Paris
+          BOOKLORE_PORT=6060
+
+          # Database Connection (BookLore)
+          DATABASE_URL=jdbc:mariadb://mariadb:3306/booklore
+          DB_USER=booklore
+          DB_PASSWORD={{ booklore_db_password }}
+
+          # MariaDB Container Settings
+          DB_USER_ID=1000
+          DB_GROUP_ID=1000
+          MYSQL_ROOT_PASSWORD={{ booklore_db_root_password }}
+          MYSQL_DATABASE=booklore
+
+    # - name: Install backup script
+    #   role: backup
+    #   vars:
+    #     backup_name: authentik
+    #     backup_root: "/root/authentik"
+    #     backup_folders: media/
+    #     backup_docker_postgres:
+    #       service: postgresql
+    #       username: authentik
+    #       file: database.sql
+    #     backup_restic_repositories:
+    #       - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/authentik
+    #         repository_password: "{{ authentik_restic_password }}"
+    #         aws_access_key_id: "{{ authentik_restic_aws_access_key_id }}"
+    #         aws_secret_access_key: "{{ authentik_restic_aws_secret_access_key }}"

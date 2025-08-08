@@ -5,6 +5,7 @@ locals {
   dns_records = {
     authentik   = { name = "auth.francon.eu",         proxied = true  }
     bookstack   = { name = "docs.francon.eu",         proxied = true  }
+    booklore    = { name = "booklore.francon.eu",     proxied = true }
     drive       = { name = "drive.francon.eu",        proxied = false }
     immich      = { name = "immich.francon.eu",       proxied = false }
     jellyfin    = { name = "media.francon.eu",        proxied = true  }

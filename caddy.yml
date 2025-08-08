@@ -22,7 +22,7 @@
       ansible.builtin.deb822_repository:
         name: caddy
         types: deb
-        uris: https://dl.cloudsmith.io/public/caddy/stable/deb/{{ ansible_distribution | lower }}
+        uris: https://dl.cloudsmith.io/public/caddy/stable/deb/{{ ansible_facts["distribution"] | lower }}
         suites: "any-version"
         components: main
         signed_by: /etc/apt/keyrings/caddy.asc
@@ -116,6 +116,9 @@
             subdomain: status
             ip: 192.168.1.158
             port: 3001
+          - service: booklore
+            ip: 192.168.1.159
+            port: 6060
 
     - name: Ensure Caddy is reloaded.
       ansible.builtin.service:

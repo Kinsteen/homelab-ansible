@@ -1,5 +1,0 @@
-- name: Setup security
-  hosts: proxmox_main
-  remote_user: server
-  roles:
-    - { name: security, become: true }
