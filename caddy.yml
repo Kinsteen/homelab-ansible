@@ -108,9 +108,14 @@
                 not remote_ip private_ranges
               }
               redir @admin /
+            frame_options: do-not-alter # Vaultwarden sets their own x-frame-options
           - service: vpn
             ip: 192.168.1.130
             port: 8123
+          - service: uptimekuma
+            subdomain: status
+            ip: 192.168.1.158
+            port: 3001
 
     - name: Ensure Caddy is reloaded.
       ansible.builtin.service:

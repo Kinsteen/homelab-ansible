@@ -49,7 +49,9 @@
         header {
             X-XSS-Protection "0"
 {% if 'frame_options' in site %}
+{% if site.frame_options != "do-not-alter" %}
             X-Frame-Options "{{ site.frame_options }}"
+{% endif %}
 {% else %}
             X-Frame-Options "DENY"
 {% endif %}

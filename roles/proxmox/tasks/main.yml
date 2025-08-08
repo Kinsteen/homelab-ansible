@@ -17,11 +17,14 @@
     - name: Generic packages install
       ansible.builtin.package:
         name:
+          - sudo
           - htop
           - neovim
           - tree
           - git
           - curl
+          - ripgrep
+          - fd-find
 
     - name: Add SSH key retrieval script
       ansible.builtin.copy:

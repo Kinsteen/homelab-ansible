@@ -1,0 +1,4 @@
+export AWS_ACCESS_KEY_ID=$(rbw get AWS_ACCESS_KEY_ID --folder Homelab)
+export AWS_SECRET_ACCESS_KEY=$(rbw get AWS_SECRET_ACCESS_KEY --folder Homelab)
+export CLOUDFLARE_API_TOKEN=$(rbw get CLOUDFLARE_API_TOKEN --folder Homelab)
+export TF_VAR_proxmox_root_password=$(rbw get PROXMOX_ROOT_PASSWORD --folder Homelab)

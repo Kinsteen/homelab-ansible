@@ -5,6 +5,7 @@ provider "registry.opentofu.org/bpg/proxmox" {
   version     = "0.81.0"
   constraints = "0.81.0"
   hashes = [
+    "h1:7UFdTwY2mo034bhUEaW/femfDRYyhfYgSb9sDlrVczI=",
     "h1:AYl851NVZwhRj0k3HsxszPEVdrh/pXRSPEEJU6WcoGo=",
     "zh:0112509b8b5215bec18de5da5d1b9e363e5174daae2b27d7d5f6711ff2039bcf",
     "zh:150804842c6e23fd4b582ceaeefa3820dd256ceab5d594b585facdc5eeeed537",
@@ -29,6 +30,7 @@ provider "registry.opentofu.org/cloudflare/cloudflare" {
   constraints = "5.8.2"
   hashes = [
     "h1:YalSVofkStvVFzDgDdmQ+DWm9pwBtunliPJ+pL7hcNY=",
+    "h1:j46o+tJuP4dYqwlhpt7YSXP67yLXkllfHy5m1dV+CIw=",
     "zh:92d133a074a8a95143861960508501711a95e0b267c60dbc722eec0a68053e08",
     "zh:95b1f349c59d226d9005c49b5ac61e856492f75d8be3ca30954a91512f2ebecf",
     "zh:a439ebd2e21dd6a4cd782563de372dbbac9853a713ba4e90fb3d317764374c2f",

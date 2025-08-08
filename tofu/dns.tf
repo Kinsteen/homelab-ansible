@@ -14,6 +14,7 @@ locals {
     prowlarr    = { name = "prowlarr.francon.eu",     proxied = true  }
     radarr      = { name = "radarr.francon.eu",       proxied = true  }
     sonarr      = { name = "sonarr.francon.eu",       proxied = true  }
+    status      = { name = "status.francon.eu",       proxied = true }
     vaultwarden = { name = "vault.francon.eu",        proxied = true  }
     wing2       = { name = "wing2.francon.eu",        proxied = false }
   }

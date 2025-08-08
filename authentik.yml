@@ -1,22 +1,4 @@
 ---
-- name: Create Authentik container
-  hosts: proxmox
-  remote_user: server
-  roles:
-    - role: proxmox
-      vars:
-        proxmox_provision: true
-        proxmox_vm_id: 156
-        proxmox_node: proxima
-        proxmox_api_user: root@pam
-        proxmox_api_host: 192.168.1.130
-        proxmox_vm_hostname: authentik
-        proxmox_vm_password: authentik
-        proxmox_vm_ostemplate: debian-12-standard_12.2-1_amd64.tar.zst
-        proxmox_vm_disk_size: 8
-        proxmox_vm_cores: 2
-        proxmox_vm_memory: 2048
-
 - name: Install authentik
   hosts: authentik
   roles:
@@ -117,7 +99,7 @@
         docker_compose_env: |
           PG_PASS={{ authentik_pg_pass }}
           AUTHENTIK_SECRET_KEY={{ authentik_secret_key }}
-          AUTHENTIK_TAG=2024.8.3
+          AUTHENTIK_TAG=2025.6.4
 
     - name: Install backup script
       role: backup

@@ -1,8 +1,12 @@
 ---
 - name: Install Docker and Vaultwarden compose
   hosts: vaultwarden
-  remote_user: root
   roles:
+    - name: Proxmox container setup
+      role: proxmox
+      vars:
+        proxmox_setup_container: true
+
     - name: Install Docker
       role: docker
       vars:
@@ -20,6 +24,8 @@
                 - ./vw-data:/data # the path before the : can be changed
               ports:
                 - 80:80
+              env_file:
+                - .env
             postgresql:
               image: docker.io/library/postgres:16-alpine
               restart: unless-stopped
@@ -28,6 +34,8 @@
               environment:
                 POSTGRES_USER: vaultwarden
                 POSTGRES_DB: vaultwarden
+              env_file:
+                - .env
 
           volumes:
             database:
