@@ -112,13 +112,18 @@
           - service: vpn
             ip: 192.168.1.130
             port: 8123
-          - service: uptimekuma
-            subdomain: status
-            ip: 192.168.1.158
-            port: 3001
           - service: booklore
             ip: 192.168.1.159
             port: 6060
+          - service: cloud
+            ip: 192.168.1.160
+            port: 9200
+          - service: collabora
+            ip: 192.168.1.160
+            port: 9980
+          - service: wopi
+            ip: 192.168.1.160
+            port: 9300
 
     - name: Ensure Caddy is reloaded.
       ansible.builtin.service:

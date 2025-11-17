@@ -97,20 +97,26 @@
         docker_compose_env: |
           PG_PASS={{ authentik_pg_pass }}
           AUTHENTIK_SECRET_KEY={{ authentik_secret_key }}
-          AUTHENTIK_TAG=2025.6.4
+          AUTHENTIK_TAG=2025.10.1
+          AUTHENTIK_EMAIL__HOST=smtp.mailbox.org
+          AUTHENTIK_EMAIL__PORT=465
+          AUTHENTIK_EMAIL__USERNAME=kinsteen@mailbox.org
+          AUTHENTIK_EMAIL__PASSWORD={{ authentik_email_password }}
+          AUTHENTIK_EMAIL__USE_SSL=true
+          AUTHENTIK_EMAIL__FROM=auth@francon.eu
 
-    - name: Install backup script
-      role: backup
-      vars:
-        backup_name: authentik
-        backup_root: "/root/authentik"
-        backup_folders: media/
-        backup_docker_postgres:
-          service: postgresql
-          username: authentik
-          file: database.sql
-        backup_restic_repositories:
-          - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/authentik
-            repository_password: "{{ authentik_restic_password }}"
-            aws_access_key_id: "{{ authentik_restic_aws_access_key_id }}"
-            aws_secret_access_key: "{{ authentik_restic_aws_secret_access_key }}"
+    # - name: Install backup script
+    #   role: backup
+    #   vars:
+    #     backup_name: authentik
+    #     backup_root: "/root/authentik"
+    #     backup_folders: media/
+    #     backup_docker_postgres:
+    #       service: postgresql
+    #       username: authentik
+    #       file: database.sql
+    #     backup_restic_repositories:
+    #       - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/authentik
+    #         repository_password: "{{ authentik_restic_password }}"
+    #         aws_access_key_id: "{{ authentik_restic_aws_access_key_id }}"
+    #         aws_secret_access_key: "{{ authentik_restic_aws_secret_access_key }}"

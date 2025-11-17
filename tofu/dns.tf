@@ -3,21 +3,23 @@ locals {
   content = "home.francon.eu"
 
   dns_records = {
-    authentik   = { name = "auth.francon.eu",         proxied = true  }
-    bookstack   = { name = "docs.francon.eu",         proxied = true  }
-    booklore    = { name = "booklore.francon.eu",     proxied = true }
+    authentik   = { name = "auth.francon.eu",         proxied = false  }
+    bookstack   = { name = "docs.francon.eu",         proxied = false  }
+    booklore    = { name = "booklore.francon.eu",     proxied = false }
     drive       = { name = "drive.francon.eu",        proxied = false }
     immich      = { name = "immich.francon.eu",       proxied = false }
-    jellyfin    = { name = "media.francon.eu",        proxied = true  }
-    mealie      = { name = "mealie.francon.eu",       proxied = true  }
+    jellyfin    = { name = "media.francon.eu",        proxied = false  }
+    mealie      = { name = "mealie.francon.eu",       proxied = false  }
     nas         = { name = "nas.francon.eu",          proxied = false }
-    pelican     = { name = "panel.francon.eu",        proxied = true  }
-    prowlarr    = { name = "prowlarr.francon.eu",     proxied = true  }
-    radarr      = { name = "radarr.francon.eu",       proxied = true  }
-    sonarr      = { name = "sonarr.francon.eu",       proxied = true  }
-    status      = { name = "status.francon.eu",       proxied = true }
-    vaultwarden = { name = "vault.francon.eu",        proxied = true  }
+    pelican     = { name = "panel.francon.eu",        proxied = false  }
+    prowlarr    = { name = "prowlarr.francon.eu",     proxied = false  }
+    radarr      = { name = "radarr.francon.eu",       proxied = false  }
+    sonarr      = { name = "sonarr.francon.eu",       proxied = false  }
+    vaultwarden = { name = "vault.francon.eu",        proxied = false  }
     wing2       = { name = "wing2.francon.eu",        proxied = false }
+    cloud       = { name = "cloud.francon.eu",        proxied = false }
+    collabora       = { name = "collabora.francon.eu",        proxied = false }
+    wopi       = { name = "wopi.francon.eu",        proxied = false }
   }
 }
 

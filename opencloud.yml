@@ -1,0 +1,9 @@
+---
+- name: Install Book container
+  hosts: opencloud
+  roles:
+    - name: Proxmox container setup
+      role: proxmox
+
+    - name: Install docker
+      role: docker
