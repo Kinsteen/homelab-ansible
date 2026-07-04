@@ -32,3 +32,11 @@
   community.docker.docker_compose_v2:
     project_src: "{{ docker_compose_file_path }}"
     state: present
+    pull: always
+
+- name: Docker system prune
+  community.docker.docker_prune:
+    containers: true
+    images: true
+    networks: true
+    volumes: true

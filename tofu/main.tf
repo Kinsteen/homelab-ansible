@@ -29,7 +29,7 @@ terraform {
 resource "proxmox_virtual_environment_container" "mealie_container" {
   node_name           = "proxima"
   start_on_boot       = true
-  started             = true
+  started             = false
   tags                = []
   template            = false
   unprivileged        = true

@@ -1,0 +1,83 @@
+---
+- name: Disable postfix
+  hosts: stalwart
+  tasks:
+    - name: Stop postfix service
+      ansible.builtin.systemd:
+        name: postfix
+        state: stopped
+        enabled: false
+
+- name: Install Stalwart
+  hosts: stalwart
+  roles:
+    - name: Proxmox container setup
+      role: proxmox
+    - role: hifis.toolkit.unattended_upgrades
+      unattended_origins_patterns:
+        - 'origin=Debian,codename=${distro_codename},label=Debian-Security' # security updates
+
+    - name: Install Stalwart with Docker compose
+      role: docker
+      vars:
+        docker_compose_file_path: "/root/stalwart"
+        docker_compose_content: |
+          services:
+            postgresql:
+              image: docker.io/library/postgres:16-alpine
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+                start_period: 20s
+                interval: 30s
+                retries: 5
+                timeout: 5s
+              volumes:
+                - database:/var/lib/postgresql/data
+              environment:
+                POSTGRES_PASSWORD: ${PG_PASS:?database password required}
+                POSTGRES_USER: ${PG_USER:-stalwart}
+                POSTGRES_DB: ${PG_DB:-stalwart}
+              env_file:
+                - .env
+
+            stalwart:
+              image: stalwartlabs/stalwart:v0.16
+              restart: unless-stopped
+              volumes:
+                - stalwart-etc:/etc/stalwart
+                - stalwart-data:/var/lib/stalwart
+              ports:
+                - "443:443"
+                - "8080:8080"
+                - "25:25"
+                - "587:587"
+                - "465:465"
+                - "143:143"
+                - "993:993"
+                - "110:110"
+                - "995:995"
+                - "4190:4190"
+              depends_on:
+                - postgresql
+              environment:
+                STALWART_RECOVERY_ADMIN: {{ stalwart_recovery_admin }}
+            bulkwark:
+              image: ghcr.io/bulwarkmail/webmail:latest
+              restart: unless-stopped
+              volumes:
+                - bulwark-config:/app/data/admin
+                - bulwark-state:/app/data/admin-state
+              ports:
+                - "3000:3000"
+          volumes:
+            stalwart-etc:
+            stalwart-data:
+            database:
+            bulwark-config:
+            bulwark-state:
+        docker_compose_env: |
+          PG_PASS={{ authentik_pg_pass }}
+
+admin@staging.kinsteen.fr
+zTBP2Vp8weUbBmdD

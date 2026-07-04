@@ -1,3 +1,4 @@
 ---
 nvidia_driver_version: "580.159.03"
 nvidia_driver_url: "https://fr.download.nvidia.com/XFree86/Linux-x86_64/{{ nvidia_driver_version }}/NVIDIA-Linux-x86_64-{{ nvidia_driver_version }}.run"
+install_container_toolkit: false

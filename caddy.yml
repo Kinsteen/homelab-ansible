@@ -1,6 +1,32 @@
 ---
 - name: Install and setup Caddy.
   hosts: caddy
+  roles:
+    - name: Proxmox container setup
+      role: proxmox
+
+    - role: docker
+      vars:
+        docker_compose_file_path: "/root/crowdsec"
+        docker_compose_content: |
+          services:
+            crowdsec:
+              image: crowdsecurity/crowdsec
+              restart: unless-stopped
+              ports:
+                - "9000:8080"
+                - "7422:7422"
+              volumes:
+                - ./logs:/var/log/nginx
+                - ./crowdsec-db:/var/lib/crowdsec/data/
+                - ./crowdsec-config:/etc/crowdsec/
+                - /var/log/caddy/:/var/log/caddy/
+    - role: hifis.toolkit.unattended_upgrades
+      unattended_origins_patterns:
+        - 'origin=Debian,codename=${distro_codename},label=Debian-Security' # security updates
+    - role: geerlingguy.go
+      go_version: "1.26.2"
+
   tasks:
     - name: Ensure keyrings directory exists.
       ansible.builtin.file:
@@ -12,8 +38,8 @@
 
     - name: Downloads Caddy keyring.
       ansible.builtin.get_url:
-        url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-        dest: /etc/apt/keyrings/caddy.asc
+        url: https://dl.cloudsmith.io/public/caddy/xcaddy/gpg.key
+        dest: /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg
         owner: "root"
         group: "root"
         mode: "0644"
@@ -21,17 +47,39 @@
     - name: Add APT list file.
       ansible.builtin.deb822_repository:
         name: caddy
-        types: deb
-        uris: https://dl.cloudsmith.io/public/caddy/stable/deb/{{ ansible_facts["distribution"] | lower }}
+        types: ['deb', 'deb-src']
+        uris: https://dl.cloudsmith.io/public/caddy/xcaddy/deb/debian
         suites: "any-version"
         components: main
-        signed_by: /etc/apt/keyrings/caddy.asc
+        signed_by: /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg
 
     - name: Ensure Caddy is installed.
       ansible.builtin.apt:
         update_cache: true
         package:
-          - caddy
+          - xcaddy
+
+    - name: Build xcaddy
+      ansible.builtin.command:
+        cmd: >
+          xcaddy build
+          --with github.com/hslatman/caddy-crowdsec-bouncer/http
+          --with github.com/hslatman/caddy-crowdsec-bouncer/appsec
+          --with github.com/caddy-dns/cloudflare
+          --output /root/caddy
+        chdir: /root
+        creates: /root/caddy
+      environment:
+        PATH: /usr/local/go/bin:{{ ansible_env.PATH }}
+
+    - name: Copy caddy
+      ansible.builtin.copy:
+        remote_src: true
+        src: /root/caddy
+        dest: /usr/bin/caddy
+        mode: "755"
+        owner: "root"
+        group: "root"
 
     - name: Create configuration
       ansible.builtin.template:
@@ -41,50 +89,56 @@
         owner: "root"
         group: "root"
       vars:
+        cloudflare_token: "{{ caddy_cloudflare_token }}"
+        root_domains:
+          - francon.eu
+          - kinsteen.fr
         auth:
-          address: 192.168.1.156:9000
+          address: 172.16.0.156:9000
         sites:
           - service: authentik
             subdomain: auth
-            ip: 192.168.1.156
+            ip: 172.16.0.156
             port: 9000
           - service: docs
-            ip: 192.168.1.151
+            ip: 172.16.0.151
             port: 6875
           - service: drive
             ip: 192.168.1.230
             port: 80
             frame_options: SAMEORIGIN # Needed for Universal viewer
           - service: immich
-            ip: 192.168.1.130
+            ip: 172.16.0.152
             port: 2283
           - service: mealie
-            ip: 192.168.1.183
+            ip: 172.16.0.183
             port: 9925
           - service: jellyfin
             subdomain: media
             ip: 192.168.1.130
             port: 8096
             frame_options: SAMEORIGIN # Needed for Jellyfin-SSO
+            custom_rules_block: |
+              encode
           - service: sonarr
-            ip: 192.168.1.150
+            ip: 172.16.0.150
             port: 8989
             authentik_forward_auth: true
           - service: radarr
-            ip: 192.168.1.150
+            ip: 172.16.0.150
             port: 7878
             authentik_forward_auth: true
           - service: prowlarr
-            ip: 192.168.1.150
+            ip: 172.16.0.150
             port: 9696
             authentik_forward_auth: true
           - service: pelican
             subdomain: panel
-            ip: 192.168.1.184
+            ip: 172.16.0.184
             port: 80
           - service: ptero-wing
             subdomain: wing2
-            ip: 192.168.1.184
+            ip: 172.16.0.184
             internal_port: 8080
             external_port: 8080
             custom_rules_block: |
@@ -96,9 +150,10 @@
               transport http {
                 tls_insecure_skip_verify
               }
+            frame_options: SAMEORIGIN # Needed for Universal viewer
           - service: vaultwarden
             subdomain: vault
-            ip: 192.168.1.157
+            ip: 172.16.0.157
             port: 80
             custom_rules_block: |
               encode zstd gzip
@@ -113,17 +168,54 @@
             ip: 192.168.1.130
             port: 8123
           - service: booklore
-            ip: 192.168.1.159
+            ip: 172.16.0.159
             port: 6060
           - service: cloud
-            ip: 192.168.1.160
+            ip: 172.16.0.160
             port: 9200
           - service: collabora
-            ip: 192.168.1.160
+            ip: 172.16.0.160
             port: 9980
-          - service: wopi
-            ip: 192.168.1.160
+          - service: wopiserver
+            ip: 172.16.0.160
             port: 9300
+          - service: appwrite
+            ip: 172.16.0.50
+            port: 80
+          - service: gift-crossing
+            ip: 192.168.1.185
+            port: 3000
+            custom_rules_block: |
+              handle_path /github-webhook-push {
+                rewrite * /push
+                reverse_proxy http://192.168.1.185:9000
+              }
+          - service: torrent
+            ip: 172.16.0.150
+            port: 7476
+          - service: webdav
+            ip: https://192.168.1.230
+            port: 5006
+            custom_rules_reverse_proxy: |
+              transport http {
+                tls_insecure_skip_verify
+              }
+          - service: dawarich
+            subdomain: timeline
+            ip: 172.16.0.158
+            port: 3000
+          - service: stalwart
+            subdomain: mail
+            root_domain: staging.kinsteen.fr
+            ip: 172.16.0.190
+            port: 8080
+            custom_rules_block: |
+              import cors https://webmail.kinsteen.fr
+          - service: bulkwark
+            subdomain: webmail
+            root_domain: kinsteen.fr
+            ip: 172.16.0.190
+            port: 3000
 
     - name: Ensure Caddy is reloaded.
       ansible.builtin.service:

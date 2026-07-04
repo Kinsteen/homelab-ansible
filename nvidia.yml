@@ -4,3 +4,5 @@
   roles:
     - name: nvidia
       become: true
+      role: nvidia
+      nvidia_driver_version: "580.159.03"

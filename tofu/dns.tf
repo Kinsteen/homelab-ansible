@@ -5,7 +5,6 @@ locals {
   dns_records = {
     authentik   = { name = "auth.francon.eu",         proxied = false  }
     bookstack   = { name = "docs.francon.eu",         proxied = false  }
-    booklore    = { name = "booklore.francon.eu",     proxied = false }
     drive       = { name = "drive.francon.eu",        proxied = false }
     immich      = { name = "immich.francon.eu",       proxied = false }
     jellyfin    = { name = "media.francon.eu",        proxied = false  }
@@ -17,9 +16,12 @@ locals {
     sonarr      = { name = "sonarr.francon.eu",       proxied = false  }
     vaultwarden = { name = "vault.francon.eu",        proxied = false  }
     wing2       = { name = "wing2.francon.eu",        proxied = false }
-    cloud       = { name = "cloud.francon.eu",        proxied = false }
-    collabora       = { name = "collabora.francon.eu",        proxied = false }
-    wopi       = { name = "wopi.francon.eu",        proxied = false }
+    giftcrossing = { name = "gift-crossing.francon.eu", proxied = false }
+    torrent      = { name = "torrent.francon.eu",     proxied = false }
+    timeline      = { name = "timeline.francon.eu",     proxied = false }
+    cloud      = { name = "cloud.francon.eu",     proxied = false }
+    collabora      = { name = "collabora.francon.eu",     proxied = false }
+    wopiserver      = { name = "wopiserver.francon.eu",     proxied = false }
   }
 }
 

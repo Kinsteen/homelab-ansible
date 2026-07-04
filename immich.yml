@@ -69,7 +69,7 @@
 
             redis:
               container_name: immich_redis
-              image: docker.io/valkey/valkey:9@sha256:3b55fbaa0cd93cf0d9d961f405e4dfcc70efe325e2d84da207a0a8e6d8fde4f9
+              image: docker.io/valkey/valkey:9@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9
               healthcheck:
                 test: redis-cli ping || exit 1
               restart: always
@@ -106,7 +106,7 @@
           TZ=Europe/Paris
 
           # The Immich version to use. You can pin this to a specific version like "v1.71.0"
-          IMMICH_VERSION=release
+          IMMICH_VERSION=v3
 
           # Connection secret for postgres. You should change it to a random password
           # Please use only the characters `A-Za-z0-9`, without special characters or spaces
@@ -122,13 +122,16 @@
       vars:
         backup_name: immich
         backup_root: "/root/immich"
-        backup_folders: /mnt/NAS/Immich
+        backup_folders:
+          - /mnt/NAS/Immich
         backup_docker_postgres:
           service: database
           username: postgres
           file: /mnt/NAS/Immich/immich-database.sql
         backup_restic_repositories:
-          - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/immich2
+          - name: backblaze
+            repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/immich2
             repository_password: "{{ immich_restic_password }}"
-            aws_access_key_id: "{{ immich_restic_aws_access_key_id }}"
-            aws_secret_access_key: "{{ immich_restic_aws_secret_access_key }}"
+            env:
+              AWS_ACCESS_KEY_ID: "{{ immich_restic_aws_access_key_id }}"
+              AWS_SECRET_ACCESS_KEY: "{{ immich_restic_aws_secret_access_key }}"

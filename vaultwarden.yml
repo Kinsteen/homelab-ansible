@@ -4,6 +4,9 @@
   roles:
     - name: Proxmox container setup
       role: proxmox
+    - role: hifis.toolkit.unattended_upgrades
+      unattended_origins_patterns:
+        - 'origin=Debian,codename=${distro_codename},label=Debian-Security' # security updates
 
     - name: Install Docker
       role: docker
@@ -47,15 +50,21 @@
       vars:
         backup_name: vaultwarden
         backup_root: "/root/vaultwarden"
-        backup_folders: vw-data/attachments vw-data/config.json vw-data/rsa*
+        backup_folders:
+          - vw-data/attachments
+          - vw-data/config.json
+          - vw-data/rsa*
         backup_docker_postgres:
           service: postgresql
           username: vaultwarden
           file: vaultwarden-database.sql
         backup_restic_repositories:
-          - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/vaultwarden
+          - name: backblaze
+            repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/vaultwarden
             repository_password: "{{ vaultwarden_restic_password }}"
-            aws_access_key_id: "{{ vaultwarden_restic_aws_access_key_id }}"
-            aws_secret_access_key: "{{ vaultwarden_restic_aws_secret_access_key }}"
-          - repository_url: /root/backup
+            env:
+              AWS_ACCESS_KEY_ID: "{{ vaultwarden_restic_aws_access_key_id }}"
+              AWS_SECRET_ACCESS_KEY: "{{ vaultwarden_restic_aws_secret_access_key }}"
+          - name: local
+            repository_url: /root/backup
             repository_password: "{{ vaultwarden_restic_password }}"

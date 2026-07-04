@@ -1,0 +1,10 @@
+- name: Test nvidia
+  hosts: all
+  roles:
+    - role: proxmox
+
+    - role: docker
+
+    - role: nvidia-lxc
+      install_container_toolkit: true
+      nvidia_version: "580.159.03"

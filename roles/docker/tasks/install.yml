@@ -31,7 +31,7 @@
     name: docker
     types: deb
     uris: https://download.docker.com/linux/{{ ansible_facts["distribution"] | lower }}
-    suites: '{{ ansible_facts["distribution_release"] }}'
+    suites: "{{ ansible_facts['distribution_release'] }}"
     components: stable
     architectures: amd64
     signed_by: /etc/apt/keyrings/docker.asc
@@ -48,3 +48,57 @@
       - containerd.io
       - docker-compose-plugin
     state: present
+
+- name: Install container toolkit
+  when: docker_install_container_toolkit | bool
+  block:
+    - name: Ensure keyrings directory exists.
+      ansible.builtin.file:
+        path: "/etc/apt/keyrings"
+        owner: "root"
+        group: "root"
+        mode: "0755"
+        state: directory
+
+    - name: Downloads Nvidia keyring.
+      ansible.builtin.get_url:
+        url: https://nvidia.github.io/libnvidia-container/gpgkey
+        dest: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+        owner: "root"
+        group: "root"
+        mode: "0644"
+
+    - name: Add APT list file.
+      ansible.builtin.deb822_repository:
+        name: nvidia-container-toolkit
+        uris: https://nvidia.github.io/libnvidia-container/stable/deb/amd64
+        signed_by: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+        suites: "/"
+
+    - name: Install packages
+      ansible.builtin.apt:
+        package:
+          - nvidia-container-toolkit
+          - nvidia-container-toolkit-base
+          - libnvidia-container-tools
+          - libnvidia-container1
+        state: present
+        update_cache: true
+      register: __installedpackages
+
+    - name: Configure Docker daemon
+      ansible.builtin.command:
+        cmd: nvidia-ctk runtime configure --runtime=docker
+
+    - name: Update container runtime toolkit to disable cgroup
+      ansible.builtin.lineinfile:
+        dest: "/etc/nvidia-container-runtime/config.toml"
+        regexp: "^\\#?no-cgroup = false"
+        line: "no-cgroup = true"
+        state: present
+        mode: "0644"
+
+    - name: Restart docker daemon
+      ansible.builtin.service:
+        name: docker
+        state: restarted

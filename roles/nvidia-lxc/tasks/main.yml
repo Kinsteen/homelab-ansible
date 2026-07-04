@@ -1,0 +1,66 @@
+---
+- name: Check installed nvidia driver version
+  ansible.builtin.shell: |
+    set -o pipefail
+    nvidia-modprobe --version |
+      grep -oP 'version \K[[:digit:]\.]+'
+  args:
+    executable: /bin/bash
+  register: __nvidia_driver_installed_version
+  check_mode: false
+  changed_when: __nvidia_driver_installed_version.stdout != nvidia_driver_version
+  failed_when: false
+  notify:
+    - Check if uninstall nvidia driver
+    - Download nvidia driver
+    - Install nvidia driver
+
+- name: Run handlers now
+  ansible.builtin.meta: flush_handlers
+
+- name: Install container toolkit
+  when: install_container_toolkit | bool
+  block:
+    - name: Ensure keyrings directory exists.
+      ansible.builtin.file:
+        path: "/etc/apt/keyrings"
+        owner: "root"
+        group: "root"
+        mode: "0755"
+        state: directory
+
+    - name: Downloads Nvidia keyring.
+      ansible.builtin.get_url:
+        url: https://nvidia.github.io/libnvidia-container/gpgkey
+        dest: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+        owner: "root"
+        group: "root"
+        mode: "0644"
+
+    - name: Add APT list file.
+      ansible.builtin.deb822_repository:
+        name: nvidia-container-toolkit
+        uris: https://nvidia.github.io/libnvidia-container/stable/deb/amd64
+        signed_by: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+        suites: "/"
+
+    - name: Install packages
+      ansible.builtin.apt:
+        package:
+          - nvidia-container-toolkit
+          - nvidia-container-toolkit-base
+          - libnvidia-container-tools
+          - libnvidia-container1
+        state: present
+        update_cache: true
+      register: __installedpackages
+
+    - name: Configure Docker daemon
+      ansible.builtin.command:
+        cmd: nvidia-ctk runtime configure --runtime=docker
+      when: __installedpackages.changed
+
+    - name: Restart docker daemon
+      ansible.builtin.service:
+        name: docker
+        state: restarted

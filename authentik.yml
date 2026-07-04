@@ -4,6 +4,9 @@
   roles:
     - name: Proxmox container setup
       role: proxmox
+    - role: hifis.toolkit.unattended_upgrades
+      unattended_origins_patterns:
+        - 'origin=Debian,codename=${distro_codename},label=Debian-Security' # security updates
 
     - name: Install Authentik with Docker compose
       role: docker
@@ -12,92 +15,75 @@
         docker_compose_content: |
           services:
             postgresql:
-              image: docker.io/library/postgres:16-alpine
-              restart: unless-stopped
-              healthcheck:
-                test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
-                start_period: 20s
-                interval: 30s
-                retries: 5
-                timeout: 5s
-              volumes:
-                - database:/var/lib/postgresql/data
+              env_file:
+              - .env
               environment:
+                POSTGRES_DB: ${PG_DB:-authentik}
                 POSTGRES_PASSWORD: ${PG_PASS:?database password required}
                 POSTGRES_USER: ${PG_USER:-authentik}
-                POSTGRES_DB: ${PG_DB:-authentik}
-              env_file:
-                - .env
-            redis:
-              image: docker.io/library/redis:alpine
-              command: --save 60 1 --loglevel warning
-              restart: unless-stopped
               healthcheck:
-                test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
-                start_period: 20s
                 interval: 30s
                 retries: 5
-                timeout: 3s
+                start_period: 20s
+                test:
+                - CMD-SHELL
+                - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+                timeout: 5s
+              image: docker.io/library/postgres:16-alpine
+              restart: unless-stopped
               volumes:
-                - redis:/data
+              - database:/var/lib/postgresql/data
             server:
-              image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.8.0}
-              restart: unless-stopped
               command: server
-              environment:
-                AUTHENTIK_REDIS__HOST: redis
-                AUTHENTIK_POSTGRESQL__HOST: postgresql
-                AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
-                AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
-                AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-              volumes:
-                - ./media:/media
-                - ./custom-templates:/templates
-              env_file:
-                - .env
-              ports:
-                - "${COMPOSE_PORT_HTTP:-9000}:9000"
-                - "${COMPOSE_PORT_HTTPS:-9443}:9443"
               depends_on:
-                - postgresql
-                - redis
-            worker:
-              image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.8.0}
-              restart: unless-stopped
-              command: worker
+                postgresql:
+                  condition: service_healthy
+              env_file:
+              - .env
               environment:
-                AUTHENTIK_REDIS__HOST: redis
                 AUTHENTIK_POSTGRESQL__HOST: postgresql
-                AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
                 AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
                 AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-              # `user: root` and the docker socket volume are optional.
-              # See more for the docker socket integration here:
-              # https://goauthentik.io/docs/outposts/integrations/docker
-              # Removing `user: root` also prevents the worker from fixing the permissions
-              # on the mounted folders, so when removing this make sure the folders have the correct UID/GID
-              # (1000:1000 by default)
+                AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+                AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+              image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.4}
+              ports:
+              - ${COMPOSE_PORT_HTTP:-9000}:9000
+              - ${COMPOSE_PORT_HTTPS:-9443}:9443
+              restart: unless-stopped
+              shm_size: 512mb
+              volumes:
+              - ./data:/data
+              - ./custom-templates:/templates
+            worker:
+              command: worker
+              depends_on:
+                postgresql:
+                  condition: service_healthy
+              env_file:
+              - .env
+              environment:
+                AUTHENTIK_POSTGRESQL__HOST: postgresql
+                AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+                AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+                AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+                AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+              image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.4}
+              restart: unless-stopped
+              shm_size: 512mb
               user: root
               volumes:
-                - /var/run/docker.sock:/var/run/docker.sock
-                - ./media:/media
-                - ./certs:/certs
-                - ./custom-templates:/templates
-              env_file:
-                - .env
-              depends_on:
-                - postgresql
-                - redis
-
+              - /var/run/docker.sock:/var/run/docker.sock
+              - ./data:/data
+              - ./certs:/certs
+              - ./custom-templates:/templates
           volumes:
             database:
-              driver: local
-            redis:
               driver: local
         docker_compose_env: |
           PG_PASS={{ authentik_pg_pass }}
           AUTHENTIK_SECRET_KEY={{ authentik_secret_key }}
-          AUTHENTIK_TAG=2025.10.1
+          AUTHENTIK_TAG=2026.5.4
           AUTHENTIK_EMAIL__HOST=smtp.mailbox.org
           AUTHENTIK_EMAIL__PORT=465
           AUTHENTIK_EMAIL__USERNAME=kinsteen@mailbox.org
@@ -105,18 +91,21 @@
           AUTHENTIK_EMAIL__USE_SSL=true
           AUTHENTIK_EMAIL__FROM=auth@francon.eu
 
-    # - name: Install backup script
-    #   role: backup
-    #   vars:
-    #     backup_name: authentik
-    #     backup_root: "/root/authentik"
-    #     backup_folders: media/
-    #     backup_docker_postgres:
-    #       service: postgresql
-    #       username: authentik
-    #       file: database.sql
-    #     backup_restic_repositories:
-    #       - repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/authentik
-    #         repository_password: "{{ authentik_restic_password }}"
-    #         aws_access_key_id: "{{ authentik_restic_aws_access_key_id }}"
-    #         aws_secret_access_key: "{{ authentik_restic_aws_secret_access_key }}"
+    - name: Install backup script
+      role: backup
+      vars:
+        backup_name: authentik
+        backup_root: "/root/authentik"
+        backup_folders:
+          - data/media/
+        backup_docker_postgres:
+          service: postgresql
+          username: authentik
+          file: database.sql
+        backup_restic_repositories:
+          - name: backblaze
+            repository_url: s3:https://s3.eu-central-003.backblazeb2.com/tassigny-bucket/authentik
+            repository_password: "{{ authentik_restic_password }}"
+            env:
+              AWS_ACCESS_KEY_ID: "{{ authentik_restic_aws_access_key_id }}"
+              AWS_SECRET_ACCESS_KEY: "{{ authentik_restic_aws_secret_access_key }}"

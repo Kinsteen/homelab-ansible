@@ -1,0 +1,6 @@
+# Allowed agent_states values
+_agent_states:
+  - present
+  - absent
+
+agent_state: present

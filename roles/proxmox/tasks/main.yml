@@ -2,7 +2,7 @@
   block:
     - name: Wait for container to be up
       ansible.builtin.wait_for_connection:
-      retries: 60
+        timeout: 30
 
     - name: Update packages
       ansible.builtin.apt:
@@ -43,10 +43,4 @@
           line: "AuthorizedKeysCommand /usr/local/bin/ssh_keys.sh"
         - regexp: "^\\#? ?AuthorizedKeysCommandUser "
           line: "AuthorizedKeysCommandUser nobody"
-      register: proxmox_sshd_config
-
-    - name: Restart SSH
-      ansible.builtin.service:
-        name: ssh
-        state: restarted
-      when: proxmox_sshd_config.changed
+      notify: Restart SSH

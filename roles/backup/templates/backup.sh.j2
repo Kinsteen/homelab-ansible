@@ -1,24 +1,18 @@
 #!/bin/bash
 
+set -euo pipefail
+
 pushd $(dirname $0) >/dev/null
 
 {% for repo in backup_restic_repositories %}
 # START {{ repo.repository_url }}
-{% if backup_docker_postgres %}
-    {% set to_backup = backup_folders + " " + backup_docker_postgres.file|default("database.sql",true)  %}
-{% else %}
-    {% set to_backup = backup_folders %}
-{% endif -%}
+source .env.{{ repo.name }}
 
-export RESTIC_REPOSITORY={{ repo.repository_url }}
-export RESTIC_PASSWORD={{ repo.repository_password }}
-{% if "aws_access_key_id" in repo and "aws_secret_access_key" in repo %}
-export AWS_ACCESS_KEY_ID={{ repo.aws_access_key_id }}
-export AWS_SECRET_ACCESS_KEY={{ repo.aws_secret_access_key }}
-{% endif %}
-
-{% if backup_docker_postgres %}
+{% if backup_docker_postgres is defined %}
 docker compose exec {{ backup_docker_postgres.service }} pg_dumpall --clean --if-exists --username={{ backup_docker_postgres.username }} > {{ backup_docker_postgres.file|default("database.sql",true) }}
+{% endif %}
+{% if backup_docker_mariadb is defined %}
+docker compose exec {{ backup_docker_mariadb.service }} /usr/bin/mariadb-dump -u {{ backup_docker_mariadb.username }} -p"$DB_PASSWORD" bookstack > {{ backup_docker_mariadb.file|default("database.sql",true) }}
 {% endif %}
 
 if ! restic cat config >/dev/null 2>&1; then
@@ -26,8 +20,18 @@ if ! restic cat config >/dev/null 2>&1; then
     restic init
 fi
 
-restic backup {{ to_backup }}
+restic backup {{ backup_folders | join(" ") }}
+restic forget --keep-last {{ backup_retention | default(30) }} --prune
 # END {{ repo.repository_url }}
+
+{% if backup_docker_postgres is defined %}
+# Delete the database dump file after backup
+rm -f {{ backup_docker_postgres.file|default("database.sql",true) }}
+{% endif %}
+{% if backup_docker_mariadb is defined %}
+# Delete the database dump file after backup
+rm -f {{ backup_docker_mariadb.file|default("database.sql",true) }}
+{% endif %}
 
 {% endfor %}
 popd >/dev/null

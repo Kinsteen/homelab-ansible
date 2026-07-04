@@ -7,3 +7,129 @@
 
     - name: Install docker
       role: docker
+
+    - name: Backup
+      role: backup
+      vars:
+        backup_name: opencloud
+        backup_root: "/root/opencloud-compose"
+        backup_folders:
+          - _data
+          - _config
+        backup_restic_repositories:
+          - name: local
+            repository_url: /root/backup
+            repository_password: "testpassword"
+
+  tasks:
+    - name: Read-write git checkout from github
+      ansible.builtin.git:
+        repo: https://github.com/opencloud-eu/opencloud-compose.git
+        dest: /root/opencloud-compose
+        force: true
+
+    - name: Down docker
+      community.docker.docker_compose_v2:
+        project_src: "/root/opencloud-compose/"
+        state: absent
+
+    - name: Copy env
+      ansible.builtin.copy:
+        remote_src: true
+        src: /root/opencloud-compose/.env.example
+        dest: /root/opencloud-compose/.env
+        mode: "0600"
+
+    - name: Edit .env
+      ansible.builtin.lineinfile:
+        dest: "/root/opencloud-compose/.env"
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        mode: "0600"
+      with_items:
+        - regexp: "^#? ?INSECURE=true"
+          line: "INSECURE=true" # We're proxying before so it's fine
+        - regexp: "^#? ?OC_DOMAIN=.*"
+          line: "OC_DOMAIN=cloud.francon.eu"
+        - regexp: "^#? ?COLLABORA_DOMAIN=.*"
+          line: "COLLABORA_DOMAIN=collabora.francon.eu"
+        - regexp: "^#? ?WOPISERVER_DOMAIN=.*"
+          line: "WOPISERVER_DOMAIN=wopiserver.francon.eu"
+        - regexp: "^#? ?INITIAL_ADMIN_PASSWORD=.*"
+          line: "INITIAL_ADMIN_PASSWORD={{ opencloud_initial_password }}"
+        - regexp: "#COMPOSE_FILE=docker-compose.yml:weboffice/collabora.yml:external-proxy/opencloud.yml:external-proxy/collabora.yml"
+          line: "COMPOSE_FILE=docker-compose.yml:weboffice/collabora.yml:external-proxy/opencloud-exposed.yml:external-proxy/collabora-exposed.yml:idm/oidc-authentik.yml"
+        - regexp: "^#? ?OC_CONFIG_DIR=.*"
+          line: "OC_CONFIG_DIR=./_config/"
+        - regexp: "^#? ?OC_DATA_DIR=.*"
+          line: "OC_DATA_DIR=./_data/"
+        - regexp: "^#? ?IDP_DOMAIN=.*"
+          line: "IDP_DOMAIN=auth.francon.eu"
+        - regexp: "^#? ?IDP_ISSUER_URL=.*"
+          line: "IDP_ISSUER_URL=https://auth.francon.eu/application/o/open-cloud/"
+        - regexp: "^#? ?IDP_DOMAIN=.*"
+          line: "IDP_DOMAIN=auth.francon.eu"
+        - regexp: "^#? ?IDP_ACCOUNT_URL=.*"
+          line: "IDP_ACCOUNT_URL=https://auth.francon.eu/if/user/#/settings"
+        - regexp: "^#? ?OC_OIDC_CLIENT_ID=.*"
+          line: "OC_OIDC_CLIENT_ID={{ opencloud_oidc_client_id }}"
+        - regexp: "^#? ?OC_DOCKER_TAG=.*"
+          line: "OC_DOCKER_TAG=daily"
+        - regexp: "^#? ?OC_DOCKER_IMAGE=.*"
+          line: "OC_DOCKER_IMAGE=opencloudeu/opencloud-rolling"
+
+    - name: Authentik IDM file
+      ansible.builtin.template:
+        dest: /root/opencloud-compose/idm/oidc-authentik.yml
+        src: oidc-authentik.yml.j2
+        mode: "644"
+        owner: "root"
+        group: "root"
+
+    - name: Proxy file claim assignment
+      ansible.builtin.lineinfile:
+        path: /root/opencloud-compose/config/opencloud/proxy.yaml
+        state: present
+        line: |
+          role_assignment:
+            driver: oidc
+            oidc_role_mapper:
+              role_claim: groups
+              role_mapping:
+                - role_name: admin
+                  claim_value: opencloud-admin # <-- Authentik group name
+                - role_name: user
+                  claim_value: opencloud-user # <-- Authentik group name
+                - role_name: guest
+                  claim_value: opencloud-guest # <-- Authentik group name
+        insertbefore: "additional_policies:"
+
+    - name: Ensure config directory exists.
+      ansible.builtin.file:
+        path: "/root/opencloud-compose/_config"
+        owner: "1000"
+        group: "1000"
+        mode: "0755"
+        state: directory
+
+    - name: Ensure data directory exists.
+      ansible.builtin.file:
+        path: "/root/opencloud-compose/_data"
+        owner: "1000"
+        group: "1000"
+        mode: "0755"
+        state: directory
+
+    - name: Up compose
+      community.docker.docker_compose_v2:
+        project_src: "/root/opencloud-compose/"
+        state: present
+        pull: always
+
+    - name: Purge images
+      community.docker.docker_prune:
+        containers: true
+        images: true
+        images_filters:
+          dangling: false

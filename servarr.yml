@@ -4,19 +4,19 @@
   tasks:
     - name: Ensure directory exists.
       ansible.builtin.file:
-        path: "/root/transmission"
+        path: "/root/qbittorrent"
         owner: "root"
         group: "root"
         mode: "0755"
         state: directory
     - name: Copy VPN wg0.conf
       ansible.builtin.copy:
-        dest: "/root/transmission/wg0.conf"
+        dest: "/root/qbittorrent/wg0.conf"
         mode: "0600"
         content: |
           [Interface]
           PrivateKey = {{ wg_private_key }}
-          Address = 10.0.124.13/32, 2a0e:1c80:1337:1:10:0:124:13/128
+          Address = 10.0.134.129/32, 2a0e:1c80:1337:1:10:0:134:129/128
           PostUp = DROUTE=$(ip route | grep default | awk '{print $3}'); HOMENET=192.168.0.0/16; HOMENET2=10.0.0.0/8; HOMENET3=172.16.0.0/12; ip route add $HOMENET3 via $DROUTE; ip route add $HOMENET2 via $DROUTE; ip route add $HOMENET via $DROUTE; iptables -I OUTPUT -d $HOMENET -j ACCEPT; iptables -A OUTPUT -d $HOMENET2 -j ACCEPT; iptables -A OUTPUT -d $HOMENET3 -j ACCEPT;  iptables -A OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT
           PreDown = HOMENET=192.168.0.0/16; HOMENET2=10.0.0.0/8; HOMENET3=172.16.0.0/12; ip route delete $HOMENET; ip route delete $HOMENET2; ip route delete $HOMENET3; iptables -D OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT; iptables -D OUTPUT -d $HOMENET -j ACCEPT; iptables -D OUTPUT -d $HOMENET2 -j ACCEPT; iptables -D OUTPUT -d $HOMENET3 -j ACCEPT
           DNS = 9.9.9.9, 1.1.1.1
@@ -26,60 +26,18 @@
           AllowedIPs = 0.0.0.0/0, ::/0
           Endpoint = fr-par.azirevpn.net:51820
 
-    - name: Unzip Flood
-      ansible.builtin.unarchive:
-        src: https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.zip
-        remote_src: true
-        dest: "/root/transmission"
-
-    - name: Custom Prowlarr definitions folder
-      ansible.builtin.file:
-        path: "/root/prowlarr/mods"
-        owner: "root"
-        group: "root"
-        mode: "0755"
-        state: directory
-    - name: Copy Ygégé defintion
-      ansible.builtin.copy:
-        dest: "/root/prowlarr/mods/10-update-custom-definitions.sh"
-        mode: "0644"
-        content: |
-          #!/bin/bash
-          # --- Mise à jour des définitions personnalisées Prowlarr ---
-          echo "[CustomDefs] Téléchargement de la définition YggAPI..."
-
-          # À personnaliser selon votre configuration :
-          PUID=${PUID:-1000}
-          PGID=${PGID:-1000}
-
-          # Path à l'intérieur du container Prowlarr, ne pas modifier
-          DEST="/config/Definitions/Custom"
-
-          # Definition
-          URL="https://raw.githubusercontent.com/UwUDev/ygege/refs/heads/develop/ygege.yml"
-
-          mkdir -p "$DEST"
-
-          echo "Download ygege.yml"
-          if curl -fsSL "$URL" -o "$DEST/ygege.yml"; then
-              chown "$PUID:$PGID" "$DEST/ygege.yml"
-              chmod 644 "$DEST/ygege.yml"
-              echo "OK"
-              echo "[CustomDefs] Terminé avec succès."
-          else
-              echo "Erreur de téléchargement"
-              echo "[CustomDefs] Échec - vérifiez votre connexion internet."
-              exit 1
-          fi
-
 - name: Servarr stack (docker)
   hosts:
     - servarr
   roles:
-    - name: Transmission
+    - role: hifis.toolkit.unattended_upgrades
+      unattended_origins_patterns:
+        - 'origin=Debian,codename=${distro_codename},label=Debian-Security' # security updates
+
+    - name: QBittorrent
       role: docker
       vars:
-        docker_compose_file_path: "/root/transmission"
+        docker_compose_file_path: "/root/qbittorrent"
         docker_compose_content: |
           services:
             wireguard:
@@ -98,13 +56,14 @@
                 - PGID=1000
                 - TZ=Europe/Paris
               ports:
-                - "9091:9091/tcp"
+                - 8080:8080
               volumes:
                 - ./wg0.conf:/config/wg_confs/wg0.conf
                 - /lib/modules:/lib/modules
               restart: always
-            transmission:
-              image: linuxserver/transmission:latest
+            qbittorrent:
+              image: lscr.io/linuxserver/qbittorrent:latest
+              container_name: qbittorrent
               network_mode: "service:wireguard"
               depends_on:
                 - wireguard
@@ -112,18 +71,28 @@
                 - PUID=1000
                 - PGID=1000
                 - TZ=Europe/Paris
+                - WEBUI_PORT=8080
+              volumes:
+                - ./config:/config
+                - /nas/Deluge Dl:/downloads #optional
+              restart: unless-stopped
+            qui:
+              image: ghcr.io/autobrr/qui:latest
+              container_name: qui
+              volumes:
+                - ./qui-config:/config
+                - /nas/Deluge Dl:/downloads
+              ports:
+                - 7476:7476
               env_file:
                 - .env
-              volumes:
-                - ./transmission-config:/config
-                - /nas/Deluge Dl:/downloads
-                - ./watch:/watch
-                - ./flood-for-transmission:/flood
-              restart: always
         docker_compose_env: |
-          USER=
-          PASS=
-          TRANSMISSION_WEB_HOME=/flood
+          QUI__OIDC_ENABLED=true
+          QUI__OIDC_ISSUER=https://auth.francon.eu/application/o/qui/
+          QUI__OIDC_CLIENT_ID={{ qui_oidc_client_id }}
+          QUI__OIDC_CLIENT_SECRET={{ qui_oidc_client_secret }}
+          QUI__OIDC_REDIRECT_URL=https://torrent.francon.eu/api/auth/oidc/callback
+          QUI__OIDC_DISABLE_BUILT_IN_LOGIN=true
 
     - name: Sonarr
       role: docker
@@ -171,24 +140,6 @@
         docker_compose_file_path: "/root/prowlarr"
         docker_compose_content: |
           services:
-            ygege:
-              image: uwucode/ygege:latest
-              container_name: ygege
-              environment:
-                - YGG_USERNAME={{ ygg_username }}
-                - YGG_PASSWORD={{ ygg_password }}
-                - BIND_IP=0.0.0.0
-                - BIND_PORT=8715
-                - LOG_LEVEL=debug
-              dns:
-                - 9.9.9.9
-                - 8.8.8.8
-              volumes:
-                - ./ygege/sessions:/app/sessions
-              ports:
-                - 8715:8715
-              restart: unless-stopped
-
             prowlarr:
               image: lscr.io/linuxserver/prowlarr:latest
               container_name: prowlarr

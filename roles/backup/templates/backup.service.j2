@@ -1,0 +1,13 @@
+[Unit]
+Description=Automated System Backup
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart={{ backup_root }}/backup.sh
+WorkingDirectory={{ backup_root }}
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
